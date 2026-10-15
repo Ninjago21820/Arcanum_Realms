@@ -3,7 +3,9 @@ package com.arcanumrealms.client.screen;
 import com.arcanumrealms.client.ClientBattleState;
 import com.arcanumrealms.core.school.School;
 import com.arcanumrealms.core.spell.Spell;
+import com.arcanumrealms.client.ContentResolver;
 import com.arcanumrealms.core.spell.SpellBook;
+import com.arcanumrealms.core.world.ContentKeys;
 import com.arcanumrealms.core.spell.SpellDescriber;
 import com.arcanumrealms.network.NetworkHandler;
 import com.arcanumrealms.network.packet.SaveDeckPacket;
@@ -174,7 +176,7 @@ public class SpellbookScreen extends Screen {
         School school = spell.school();
         graphics.fill(x, y, x + 4, y + 9, 0xFF000000 | school.color());
         String cost = spell.variablePips() ? "X" : String.valueOf(spell.pipCost());
-        String label = spell.name(french());
+        String label = ContentResolver.resolve(ContentKeys.spellName(spell, french()));
         int maxLabel = COLUMN_WIDTH - 66;
         while (this.font.width(label) > maxLabel && label.length() > 3) {
             label = label.substring(0, label.length() - 1);
@@ -188,7 +190,7 @@ public class SpellbookScreen extends Screen {
 
     private void drawTooltip(GuiGraphics graphics, Spell spell, int mouseX, int mouseY) {
         List<String> lines = new ArrayList<>();
-        lines.add(spell.name(french()) + " — " + spell.school().display(french()));
+        lines.add(ContentResolver.resolve(ContentKeys.spellName(spell, french())) + " — " + spell.school().display(french()));
         lines.add((spell.variablePips() ? ("X+" + spell.minPips()) : String.valueOf(spell.pipCost()))
                 + " pips, " + spell.accuracy() + "%, " + tr("gui.arcanum_realms.grimoire.minlevel") + " " + spell.minLevel());
         for (String line : wrap(SpellDescriber.describe(spell, french()), 190)) lines.add(line);

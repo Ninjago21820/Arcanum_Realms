@@ -1,6 +1,8 @@
 package com.arcanumrealms.client.screen;
 
 import com.arcanumrealms.client.ClientBattleState;
+import com.arcanumrealms.client.ContentResolver;
+import com.arcanumrealms.core.world.ContentLine;
 import com.arcanumrealms.network.packet.QuestJournalPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -53,9 +55,10 @@ public class QuestJournalScreen extends Screen {
 
         graphics.drawString(font, this.title, left, 12, 0xFFE8C46A, true);
 
-        List<String> lines = packet.lines();
+        List<ContentLine> lines = packet.lines();
         int y = top - scroll;
-        for (String line : lines) {
+        for (ContentLine content : lines) {
+            String line = ContentResolver.resolve(content);
             if (y >= top - LINE_HEIGHT && y <= bottom - LINE_HEIGHT) {
                 int colour = 0xFFE8ECF5;
                 if (line.startsWith("[+]")) colour = 0xFF7CD87C;

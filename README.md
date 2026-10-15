@@ -16,6 +16,7 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
 - [Installation](#installation)
 - [Premiers pas en jeu](#premiers-pas-en-jeu)
 - [Commandes](#commandes)
+- [Ecrire vos propres textes](#ecrire-vos-propres-textes)
 - [Touches](#touches)
 - [Reglages](#reglages)
 - [Documentation](#documentation)
@@ -70,6 +71,9 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
   objectifs *vaincre / recolter / parler / se rendre a*.
 - **Journal de quetes** persistant, progression partagee dans un rayon de 40 blocs, recompenses
   en XP, or, sorts, equipement et choix de recompense.
+- **Textes entierement a vous** : dialogues, noms de PNJ et noms de sorts sont exposes en
+  **cles de traduction** — un pack de ressources suffit pour les reecrire (et jusqu'au journal
+  de combat), sans recompiler. Voir [Ecrire vos propres textes](#ecrire-vos-propres-textes).
 - **Equipement** : 47 pieces en 5 paliers et 8 emplacements (chapeau, robe, bottes, baguette,
   athame, anneau, amulette, deck) avec PV, pips de puissance, critique, blocage, precision,
   percee, resists et bonus de degats ; portees a la souris, statistiques appliquees en duel.
@@ -181,12 +185,48 @@ courbe d'XP et rencontres du Cercle Arcanique. Le detail de chaque cle est dans
 
 ---
 
+## Ecrire vos propres textes
+
+**Dialogues, noms de PNJ et noms de sorts sont entierement a vous** : ils passent par
+des cles de traduction, donc rien n'est fige dans le code.
+
+```bash
+python3 tools/make-content-pack.py /chemin/vers/jdk17
+```
+
+Cree `content/arcanum-realms-textes/` : un **pack de ressources** avec tous les textes
+du mod (859 cles, dont 91 repliques de dialogue, 112 noms de sorts et 19 PNJ). Copiez-le
+dans `resourcepacks`, activez-le, puis **F3 + T** pour recharger : vos textes remplacent
+ceux d'origine, sans recompiler le mod. Vous ne gardez que les cles qui vous interessent.
+
+```json
+{
+  "npc.arcanum_realms.lea_nightchant": "Lea Chantenuit",
+  "dialogue.arcanum_realms.lea_nightchant.greeting.0": "Tiens, un nouveau visage.",
+  "spell.arcanum_realms.ember_kitten.name": "Chaton de Braise"
+}
+```
+
+Verification de vos fichiers, et rendu en jeu sans lancer Minecraft :
+
+```bash
+python3 tools/make-content-pack.py /chemin/vers/jdk17 --check content/arcanum-realms-textes/assets/arcanum_realms/lang/fr_fr.json
+python3 tools/make-content-pack.py /chemin/vers/jdk17 --simulate content/arcanum-realms-textes/assets/arcanum_realms/lang/fr_fr.json
+```
+
+Tout est detaille dans [docs/content.md](docs/content.md) (conventions des cles, les quatre
+moments d'un dialogue, comment ecrire les textes directement dans le code source).
+
+---
+
 ## Documentation
 
 - [docs/mechanics.md](docs/mechanics.md) : toutes les mecaniques de duel (pips, main, ordre de
   calcul des degats, fizzle, critiques, etats, IA, XP, reglages).
 - [docs/spells.md](docs/spells.md) : catalogue complet des 112 sorts et des 15 creatures,
   **genere automatiquement** depuis le moteur de jeu.
+- [docs/content.md](docs/content.md) : ecrire vos dialogues, noms de PNJ et noms de sorts
+  (pack de ressources, conventions des cles, verification).
 - [docs/world.md](docs/world.md) : contenu du monde — zones, bestiaire avec resistances et
   butin, PNJ, chaine de quetes, equipement et tables de butin, **genere automatiquement**.
 
@@ -220,6 +260,7 @@ python3 tools/generate-resources.py              # modeles, textures, recettes, 
 python3 tools/generate-lang.py /chemin/jdk17     # fichiers de langue a partir du moteur
 python3 tools/generate-docs.py /chemin/jdk17       # docs/spells.md
 python3 tools/generate-world-docs.py /chemin/jdk17 # docs/world.md
+python3 tools/make-content-pack.py /chemin/jdk17   # content/ : vos textes a editer
 ```
 
 ---

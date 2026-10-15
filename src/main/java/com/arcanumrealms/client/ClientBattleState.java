@@ -19,7 +19,36 @@ public final class ClientBattleState {
     private ClientBattleState() {}
 
     public static BattleStatePacket battle() { return battle; }
-    public static void setBattle(BattleStatePacket packet) { battle = packet; }
+    /**
+     * Nouvel etat de duel.
+     *
+     * <p>Les noms de creatures, d'etats et les lignes du journal sont composes par
+     * le serveur : on y remplace les noms connus par ceux du joueur (sorts,
+     * creatures, PNJ, equipement, ecoles). Renommer un sort se voit donc partout,
+     * y compris dans le journal de combat.
+     */
+    public static void setBattle(BattleStatePacket packet) {
+        battle = packet == null ? null : localize(packet);
+    }
+
+    private static BattleStatePacket localize(BattleStatePacket packet) {
+        java.util.List<BattleStatePacket.Actor> actors = new java.util.ArrayList<>(packet.actors.size());
+        for (BattleStatePacket.Actor actor : packet.actors) {
+            java.util.List<String> statuses = new java.util.ArrayList<>(actor.statuses.size());
+            for (String status : actor.statuses) statuses.add(ContentResolver.substitute(status));
+            actors.add(new BattleStatePacket.Actor(actor.id, ContentResolver.substitute(actor.name),
+                    actor.school, actor.health, actor.maxHealth, actor.player, actor.self,
+                    actor.defeated, actor.fled, actor.pips, statuses));
+        }
+        java.util.List<BattleStatePacket.Line> events = new java.util.ArrayList<>(packet.events.size());
+        for (BattleStatePacket.Line line : packet.events) {
+            events.add(new BattleStatePacket.Line(ContentResolver.substitute(line.fr),
+                    ContentResolver.substitute(line.en)));
+        }
+        return new BattleStatePacket(packet.battleId, packet.round, packet.phase, packet.secondsLeft,
+                packet.selfId, packet.canAct, packet.canFlee, actors, packet.hand, events,
+                ContentResolver.substitute(packet.aura));
+    }
     public static WizardDataPacket wizard() { return wizard; }
     public static void setWizard(WizardDataPacket packet) { wizard = packet; }
     public static boolean inBattle() { return battle != null; }

@@ -23,3 +23,7 @@ Thumbs.db
 tools/.jdk/
 javac.*.args
 *.args
+
+# Python
+__pycache__/
+*.pyc

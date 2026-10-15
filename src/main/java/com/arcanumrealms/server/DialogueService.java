@@ -1,5 +1,7 @@
 package com.arcanumrealms.server;
 
+import com.arcanumrealms.core.world.ContentKeys;
+import com.arcanumrealms.core.world.ContentLine;
 import com.arcanumrealms.core.world.Dialogue;
 import com.arcanumrealms.core.world.NpcDef;
 import com.arcanumrealms.core.world.Npcs;
@@ -48,32 +50,42 @@ public final class DialogueService {
         else if (!offers.isEmpty()) dialogue = npc.inProgress();
         if (dialogue.isEmpty()) dialogue = npc.greeting();
 
-        List<String> lines = new ArrayList<>();
-        lines.add(npc.title(french).isBlank()
-                ? npc.name(french)
-                : npc.name(french) + ", " + npc.title(french));
-        lines.addAll(dialogue.texts(french));
+        List<ContentLine> lines = new ArrayList<>();
+        lines.add(ContentKeys.npcHeadline(npc, french));
+        // Les repliques gardent leur cle : le joueur peut les reecrire.
+        String slot = !handIns.isEmpty() ? ContentKeys.COMPLETION
+                : !offers.isEmpty() ? ContentKeys.IN_PROGRESS : ContentKeys.GREETING;
+        if (dialogue.isEmpty()) slot = ContentKeys.GREETING;
+        lines.addAll(ContentKeys.dialogue(npc, slot, french));
         if (!handIns.isEmpty()) {
-            lines.add(Component.translatable("arcanum_realms.dialogue.handin_ready").getString());
+            lines.add(ContentLine.of("arcanum_realms.dialogue.handin_ready",
+                    Component.translatable("arcanum_realms.dialogue.handin_ready").getString()));
         } else if (!offers.isEmpty()) {
-            lines.add(Component.translatable("arcanum_realms.dialogue.quest_available").getString());
+            lines.add(ContentLine.of("arcanum_realms.dialogue.quest_available",
+                    Component.translatable("arcanum_realms.dialogue.quest_available").getString()));
         }
 
         List<QuestAction> actions = new ArrayList<>();
         for (QuestDef quest : handIns) {
-            actions.add(new QuestAction(quest.id(), QuestText.line(quest, french),
-                    QuestText.goals(quest, french), QuestText.rewards(quest, french), KIND_HAND_IN));
+            actions.add(new QuestAction(quest.id(), ContentKeys.questName(quest, french),
+                    ContentKeys.questGoals(quest, french), ContentKeys.questRewardLine(quest, french),
+                    KIND_HAND_IN));
         }
         for (QuestDef quest : offers) {
-            actions.add(new QuestAction(quest.id(), QuestText.line(quest, french),
-                    QuestText.goals(quest, french), QuestText.rewards(quest, french), KIND_QUEST));
+            actions.add(new QuestAction(quest.id(), ContentKeys.questName(quest, french),
+                    ContentKeys.questGoals(quest, french), ContentKeys.questRewardLine(quest, french),
+                    KIND_QUEST));
         }
         // Le marchand vend l'equipement correspondant au niveau du joueur.
         if (npc.role() == com.arcanumrealms.core.world.NpcRole.SHOPKEEPER) {
             for (GearDef gear : shopStock(data)) {
                 actions.add(new QuestAction(gear.id(),
-                        gear.name(french) + " - " + GearItem.buyPrice(gear) + (french ? " or" : " gold"),
-                        List.of(gear.stats(french)), "", KIND_BUY));
+                        ContentLine.of(ContentKeys.gear(gear.id()),
+                                gear.name(french) + " - " + GearItem.buyPrice(gear)
+                                        + (french ? " or" : " gold")),
+                        List.of(ContentLine.of(ContentKeys.gear(gear.id()),
+                                gear.stats(french))),
+                        ContentLine.empty(), KIND_BUY));
             }
         }
 
@@ -89,7 +101,7 @@ public final class DialogueService {
             case NpcInteractPacket.BUY -> buy(player, npc, arg);
             case NpcInteractPacket.CLOSE -> {
                 boolean french = Language.isFrench();
-                List<String> lines = new ArrayList<>(npc.farewell().texts(french));
+                List<ContentLine> lines = new ArrayList<>(ContentKeys.dialogue(npc, ContentKeys.FAREWELL, french));
                 NetworkHandler.sendNpcDialogue(player, npc.id(), lines, List.of());
             }
             default -> {
@@ -163,7 +175,8 @@ public final class DialogueService {
     public static final int KIND_BUY = 2;
 
     /** Bouton de dialogue envoye au client. */
-    public record QuestAction(String id, String label, List<String> goals, String rewards, int kind) {}
+    public record QuestAction(String id, ContentLine label, List<ContentLine> goals,
+                              ContentLine rewards, int kind) {}
 
     /** Resume lisible d'un objectif, pour les messages de progression. */
     public static String goalLabel(QuestGoal goal, boolean french) {

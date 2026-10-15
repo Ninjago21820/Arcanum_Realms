@@ -1,6 +1,8 @@
 package com.arcanumrealms.client.screen;
 
 import com.arcanumrealms.client.ClientBattleState;
+import com.arcanumrealms.client.ContentResolver;
+import com.arcanumrealms.core.world.ContentKeys;
 import com.arcanumrealms.client.hud.DuelHudOverlay;
 import com.arcanumrealms.core.school.School;
 import com.arcanumrealms.core.spell.Spell;
@@ -167,7 +169,7 @@ public class DuelScreen extends Screen {
             graphics.drawString(this.font, cost + " " + tr("gui.arcanum_realms.card.pips"), rect.x + 4, rect.y + 3, 0xFF101010);
 
             // nom (sur plusieurs lignes)
-            List<String> nameLines = wrap(spell.name(french()), CARD_WIDTH - 8);
+            List<String> nameLines = wrap(ContentResolver.resolve(ContentKeys.spellName(spell, french())), CARD_WIDTH - 8);
             int textY = rect.y + 15;
             for (String line : nameLines) {
                 graphics.drawString(this.font, line, rect.x + 4, textY, affordable ? 0xFFFFFFFF : 0xFF909090);
@@ -210,7 +212,7 @@ public class DuelScreen extends Screen {
             if (mouseX >= rect.x && mouseX < rect.x + CARD_WIDTH && mouseY >= rect.y && mouseY < rect.y + CARD_HEIGHT) {
                 Spell spell = SpellBook.get(rect.card.spellId);
                 List<String> lines = new ArrayList<>();
-                lines.add(spell.name(french()) + " — " + spell.school().display(french()));
+                lines.add(ContentResolver.resolve(ContentKeys.spellName(spell, french())) + " — " + spell.school().display(french()));
                 lines.add((spell.variablePips() ? ("X+" + spell.minPips()) : String.valueOf(spell.pipCost()))
                         + " " + tr("gui.arcanum_realms.card.pips") + ", " + spell.accuracy() + "%");
                 lines.addAll(wrap(SpellDescriber.describe(spell, french()), 200));

@@ -82,7 +82,8 @@ public final class NetworkHandler {
     }
 
     /** Envoie le dialogue d'un PNJ au joueur. */
-    public static void sendNpcDialogue(ServerPlayer player, String npcId, java.util.List<String> lines,
+    public static void sendNpcDialogue(ServerPlayer player, String npcId,
+                                       java.util.List<com.arcanumrealms.core.world.ContentLine> lines,
                                        java.util.List<com.arcanumrealms.server.DialogueService.QuestAction> actions) {
         java.util.List<NpcDialoguePacket.Action> encoded = new java.util.ArrayList<>();
         for (com.arcanumrealms.server.DialogueService.QuestAction action : actions) {
@@ -93,7 +94,8 @@ public final class NetworkHandler {
     }
 
     /** Envoie le journal de quetes au joueur. */
-    public static void sendQuestJournal(ServerPlayer player, java.util.List<String> lines) {
+    public static void sendQuestJournal(ServerPlayer player,
+                                        java.util.List<com.arcanumrealms.core.world.ContentLine> lines) {
         sendToPlayer(player, new QuestJournalPacket(lines));
     }
 

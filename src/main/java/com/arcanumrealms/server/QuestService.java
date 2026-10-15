@@ -1,5 +1,7 @@
 package com.arcanumrealms.server;
 
+import com.arcanumrealms.core.world.ContentKeys;
+import com.arcanumrealms.core.world.ContentLine;
 import com.arcanumrealms.core.world.GearDef;
 import com.arcanumrealms.core.world.Gears;
 import com.arcanumrealms.core.world.Npcs;
@@ -59,10 +61,13 @@ public final class QuestService {
         if (!data.quests().canStart(questId, data.level())) {
             if (data.level() < quest.levelRequired()) {
                 player.displayClientMessage(Component.translatable("arcanum_realms.quest.level_required",
-                        quest.levelRequired(), quest.name(french)).withStyle(ChatFormatting.RED), false);
+                        quest.levelRequired(), nameComponent(quest, french))
+                        .withStyle(ChatFormatting.RED), false);
             } else {
                 QuestDef prequest = Quests.find(quest.prequest()).orElse(null);
-                String name = prequest == null ? quest.prequest() : prequest.name(french);
+                Component name = prequest == null
+                        ? Component.literal(String.valueOf(quest.prequest()))
+                        : nameComponent(prequest, french);
                 player.displayClientMessage(Component.translatable("arcanum_realms.quest.prequest",
                         name).withStyle(ChatFormatting.RED), false);
             }
@@ -72,9 +77,10 @@ public final class QuestService {
         data.quests().start(questId);
         data.save(player);
         player.displayClientMessage(Component.translatable("arcanum_realms.quest.accepted",
-                quest.name(french)).withStyle(ChatFormatting.GREEN), false);
-        for (String goal : QuestText.goals(quest, french)) {
-            player.displayClientMessage(Component.literal(" - " + goal).withStyle(ChatFormatting.GRAY), false);
+                nameComponent(quest, french)).withStyle(ChatFormatting.GREEN), false);
+        for (ContentLine goal : ContentKeys.questGoals(quest, french)) {
+            player.displayClientMessage(Component.literal(" - ").append(lineComponent(goal))
+                    .withStyle(ChatFormatting.GRAY), false);
         }
     }
 
@@ -87,7 +93,7 @@ public final class QuestService {
         data.save(player);
         if (quest != null) {
             player.displayClientMessage(Component.translatable("arcanum_realms.quest.abandoned",
-                    quest.name(Language.isFrench())).withStyle(ChatFormatting.GRAY), false);
+                    nameComponent(quest, Language.isFrench())).withStyle(ChatFormatting.GRAY), false);
         }
     }
 
@@ -144,18 +150,19 @@ public final class QuestService {
 
         data.save(player);
         player.displayClientMessage(Component.translatable("arcanum_realms.quest.completed",
-                quest.name(french)).withStyle(ChatFormatting.GREEN), false);
+                nameComponent(quest, french)).withStyle(ChatFormatting.GREEN), false);
 
         // --- suite de la chaine
         if (quest.leadsTo() != null) {
             Quests.find(quest.leadsTo()).ifPresent(next -> {
                 if (data.quests().canStart(next.id(), data.level())) {
                     player.displayClientMessage(Component.translatable("arcanum_realms.quest.next",
-                            next.name(french), npcName(next.giverNpc(), french))
+                            nameComponent(next, french), npcName(next.giverNpc(), french))
                             .withStyle(ChatFormatting.YELLOW), false);
                 } else {
                     player.displayClientMessage(Component.translatable("arcanum_realms.quest.next_later",
-                            next.name(french), next.levelRequired()).withStyle(ChatFormatting.YELLOW), false);
+                            nameComponent(next, french), next.levelRequired())
+                            .withStyle(ChatFormatting.YELLOW), false);
                 }
             });
         }
@@ -164,13 +171,30 @@ public final class QuestService {
         for (com.arcanumrealms.core.world.ZoneDef zone : Zones.all()) {
             if (questId.equals(zone.unlockQuest())) {
                 player.displayClientMessage(Component.translatable("arcanum_realms.quest.zone_unlocked",
-                        zone.name(french), zone.unlockLevel()).withStyle(ChatFormatting.LIGHT_PURPLE), false);
+                        ContentKeys.zoneName(zone, french), zone.unlockLevel())
+                        .withStyle(ChatFormatting.LIGHT_PURPLE), false);
             }
         }
     }
 
-    private static String npcName(String npcId, boolean french) {
-        return Npcs.find(npcId).map(npc -> npc.name(french)).orElse(npcId);
+    /** Nom de PNJ affichable : le joueur peut le renommer dans son pack de ressources. */
+    static Component npcName(String npcId, boolean french) {
+        return Npcs.find(npcId)
+                .map(npc -> lineComponent(ContentKeys.npcName(npc, french)))
+                .orElseGet(() -> Component.literal(npcId));
+    }
+
+    /** Nom de quete affichable. */
+    static Component nameComponent(QuestDef quest, boolean french) {
+        return lineComponent(ContentKeys.questName(quest, french));
+    }
+
+    /** Texte de contenu affichable (cle de traduction + texte par defaut). */
+    public static Component lineComponent(ContentLine line) {
+        if (line == null) return Component.empty();
+        return line.translatable()
+                ? Component.translatableWithFallback(line.key(), line.text())
+                : Component.literal(line.text());
     }
 
     private static void giveGear(ServerPlayer player, String gearId, boolean french) {
@@ -224,7 +248,7 @@ public final class QuestService {
         for (String questId : finishedQuestIds) {
             Quests.find(questId).ifPresent(quest -> {
                 player.displayClientMessage(Component.translatable("arcanum_realms.quest.goals_done",
-                        quest.name(french)).withStyle(ChatFormatting.GREEN), true);
+                        nameComponent(quest, french)).withStyle(ChatFormatting.GREEN), true);
                 player.displayClientMessage(Component.translatable("arcanum_realms.quest.talk_to",
                         npcName(quest.handInNpc(), french)).withStyle(ChatFormatting.YELLOW), false);
             });
@@ -234,32 +258,44 @@ public final class QuestService {
     // ---------------------------------------------------------- journal
 
     /** Journal de quetes affiche par {@code /arcanum quetes}. */
-    public static List<String> journal(ServerPlayer player) {
+    public static List<ContentLine> journal(ServerPlayer player) {
         boolean french = Language.isFrench();
         WizardData data = WizardData.load(player);
-        List<String> lines = new ArrayList<>();
+        List<ContentLine> lines = new ArrayList<>();
         List<String> active = data.quests().active();
         if (active.isEmpty()) {
-            lines.add(Component.translatable("arcanum_realms.quest.journal_empty").getString());
+            lines.add(ContentLine.of("arcanum_realms.quest.journal_empty",
+                    Component.translatable("arcanum_realms.quest.journal_empty").getString()));
             return lines;
         }
         for (String questId : active) {
             QuestDef quest = Quests.find(questId).orElse(null);
             if (quest == null) continue;
             boolean ready = data.quests().readyToHandIn(questId);
-            lines.add((ready ? "[+] " : "[-] ") + QuestText.line(quest, french));
-            for (QuestGoal goal : quest.goals()) {
-                int progress = data.quests().progressOf(questId, goal.key());
+            // Nom de la quete : la cle permet de la renommer entierement.
+            lines.add(ContentKeys.questName(quest, french));
+            List<ContentLine> goals = ContentKeys.questGoals(quest, french);
+            for (int i = 0; i < quest.goals().size(); i++) {
+                QuestGoal goal = quest.goals().get(i);
                 boolean done = data.quests().goalDone(questId, goal);
-                lines.add("    " + (done ? "[x] " : "[ ] ") + QuestText.goal(goal, french)
-                        + (done ? "" : " (" + progress + "/" + required(goal) + ")"));
+                int progress = data.quests().progressOf(questId, goal.key());
+                String prefix = done ? "    [x] " : "    [ ] ";
+                String suffix = done ? "" : " (" + progress + "/" + required(goal) + ")";
+                ContentLine line = goals.get(i);
+                lines.add(ContentLine.of(line.key(), prefix + line.text() + suffix));
             }
             if (ready) {
-                lines.add("    " + Component.translatable("arcanum_realms.quest.journal_ready",
-                        npcName(quest.handInNpc(), french)).getString());
+                lines.add(ContentLine.of("arcanum_realms.quest.journal_ready_line",
+                        "    " + Component.translatable("arcanum_realms.quest.journal_ready",
+                                npcComponentName(quest.handInNpc(), french)).getString()));
             }
         }
         return lines;
+    }
+
+    /** Nom de PNJ en composant, pour l'inserer dans un message. */
+    private static Component npcComponentName(String npcId, boolean french) {
+        return npcName(npcId, french);
     }
 
     private static int required(QuestGoal goal) {

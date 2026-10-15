@@ -1,6 +1,8 @@
 package com.arcanumrealms.client.screen;
 
 import com.arcanumrealms.client.ClientBattleState;
+import com.arcanumrealms.client.ContentResolver;
+import com.arcanumrealms.core.world.ContentLine;
 import com.arcanumrealms.network.NetworkHandler;
 import com.arcanumrealms.network.packet.NpcInteractPacket;
 import com.arcanumrealms.network.packet.NpcDialoguePacket;
@@ -50,7 +52,7 @@ public class NpcDialogueScreen extends Screen {
         addRenderableWidget(close);
 
         for (NpcDialoguePacket.Action action : packet.actions()) {
-            String label = action.label();
+            String label = ContentResolver.resolve(action.label());
             if (label.length() > 46) label = label.substring(0, 44) + "...";
             Button button = Button.builder(Component.literal(label), clicked -> choose(action))
                     .bounds(panelLeft, y, PANEL_WIDTH, BUTTON_HEIGHT)
@@ -95,11 +97,12 @@ public class NpcDialogueScreen extends Screen {
         graphics.fill(panelLeft - 2, top - 2, panelLeft + PANEL_WIDTH + 2, top + height + 2, 0xFF2A3550);
 
         int y = top;
-        List<String> lines = packet.lines();
+        List<ContentLine> lines = packet.lines();
         for (int i = 0; i < lines.size() && y < top + height - LINE_HEIGHT; i++) {
             boolean header = i == 0;
+            String text = ContentResolver.resolve(lines.get(i));
             for (FormattedCharSequence sequence : font.split(
-                    Component.literal(lines.get(i)), PANEL_WIDTH - 12)) {
+                    Component.literal(text), PANEL_WIDTH - 12)) {
                 if (y >= top + height - LINE_HEIGHT) break;
                 graphics.drawString(font, sequence, panelLeft + 6, y,
                         header ? 0xFFE8C46A : 0xFFE8ECF5, true);
@@ -117,11 +120,14 @@ public class NpcDialogueScreen extends Screen {
             List<Component> tooltip = new ArrayList<>();
             if (!action.goals().isEmpty()) {
                 tooltip.add(Component.translatable("gui.arcanum_realms.dialogue.goals"));
-                action.goals().forEach(goal -> tooltip.add(Component.literal(" - " + goal)));
+                for (ContentLine goal : action.goals()) {
+                    tooltip.add(Component.literal(" - " + ContentResolver.resolve(goal)));
+                }
             }
-            if (!action.rewards().isBlank()) {
+            String rewards = ContentResolver.resolve(action.rewards());
+            if (!rewards.isBlank()) {
                 tooltip.add(Component.translatable("gui.arcanum_realms.dialogue.rewards"));
-                tooltip.add(Component.literal(" - " + action.rewards()));
+                tooltip.add(Component.literal(" - " + rewards));
             }
             if (action.kind() == com.arcanumrealms.server.DialogueService.KIND_BUY) {
                 tooltip.add(Component.translatable("gui.arcanum_realms.dialogue.buy"));

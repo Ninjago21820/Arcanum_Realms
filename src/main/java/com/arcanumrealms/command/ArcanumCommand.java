@@ -317,9 +317,11 @@ public class ArcanumCommand {
     private static int journal(CommandSourceStack source) {
         ServerPlayer sp = player(source);
         if (sp == null) return 0;
-        List<String> lines = QuestService.journal(sp);
+        List<com.arcanumrealms.core.world.ContentLine> lines = QuestService.journal(sp);
         NetworkHandler.sendQuestJournal(sp, lines);
-        lines.forEach(line -> source.sendSuccess(() -> Component.literal(line), false));
+        // Les lignes portent leurs cles : elles s'affichent dans la langue du joueur,
+        // et un pack de ressources peut les reecrire.
+        lines.forEach(line -> source.sendSuccess(() -> QuestService.lineComponent(line), false));
         return 1;
     }
 

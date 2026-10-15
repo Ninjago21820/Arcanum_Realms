@@ -24,59 +24,80 @@ import com.arcanumrealms.core.school.School;
 import com.arcanumrealms.core.spell.Spell;
 import com.arcanumrealms.core.spell.SpellBook;
 import com.arcanumrealms.core.spell.SpellDescriber;
+import com.arcanumrealms.core.world.Bestiary;
+import com.arcanumrealms.core.world.ContentKeys;
+import com.arcanumrealms.core.world.ContentLine;
 import com.arcanumrealms.core.world.GearDef;
 import com.arcanumrealms.core.world.Gears;
 import com.arcanumrealms.core.world.NpcDef;
 import com.arcanumrealms.core.world.Npcs;
 import com.arcanumrealms.core.world.QuestDef;
+import com.arcanumrealms.core.world.QuestText;
 import com.arcanumrealms.core.world.Quests;
 import com.arcanumrealms.core.world.WorldCreature;
-import com.arcanumrealms.core.world.Bestiary;
 import com.arcanumrealms.core.world.ZoneDef;
 import com.arcanumrealms.core.world.Zones;
 
+import java.util.List;
+
+/** Exporte toutes les cles de traduction du mod : cle, texte anglais, texte francais. */
 public class DumpLang {
+    private static final char TAB = 9;
+    private static final char NL = 10;
+
+    private static void line(StringBuilder sb, String key, String en, String fr) {
+        sb.append(key).append(TAB).append(en).append(TAB).append(fr).append(NL);
+    }
+
     public static void main(String[] args) {
         StringBuilder sb = new StringBuilder();
+
         for (School school : School.values()) {
-            sb.append("school.arcanum_realms.").append(school.id()).append('\\t')
-              .append(school.display(false)).append('\\t').append(school.display(true)).append('\\n');
+            line(sb, school.langKey(), school.display(false), school.display(true));
         }
         for (Spell spell : SpellBook.all()) {
-            sb.append("spell.arcanum_realms.").append(spell.id()).append(".name").append('\\t')
-              .append(spell.name(false)).append('\\t').append(spell.name(true)).append('\\n');
-            sb.append("spell.arcanum_realms.").append(spell.id()).append(".desc").append('\\t')
-              .append(SpellDescriber.describe(spell, false)).append('\\t')
-              .append(SpellDescriber.describe(spell, true)).append('\\n');
+            line(sb, ContentKeys.spell(spell.id()), spell.name(false), spell.name(true));
+            line(sb, ContentKeys.spellDescription(spell.id()),
+                    SpellDescriber.describe(spell, false), SpellDescriber.describe(spell, true));
         }
         for (WorldCreature creature : Bestiary.all()) {
-            sb.append("creature.arcanum_realms.").append(creature.id()).append('\\t')
-              .append(creature.nameEn()).append('\\t').append(creature.nameFr()).append('\\n');
+            line(sb, ContentKeys.creature(creature.id()), creature.nameEn(), creature.nameFr());
         }
         for (NpcDef npc : Npcs.all()) {
-            sb.append("npc.arcanum_realms.").append(npc.id()).append('\\t')
-              .append(npc.nameEn()).append('\\t').append(npc.nameFr()).append('\\n');
-            sb.append("npc.arcanum_realms.").append(npc.id()).append(".title").append('\\t')
-              .append(npc.titleEn()).append('\\t').append(npc.titleFr()).append('\\n');
-        }
-        for (GearDef gear : Gears.all()) {
-            sb.append("gear.arcanum_realms.").append(gear.id()).append('\\t')
-              .append(gear.nameEn()).append('\\t').append(gear.nameFr()).append('\\n');
-        }
-        for (ZoneDef zone : Zones.all()) {
-            sb.append("zone.arcanum_realms.").append(zone.id()).append('\\t')
-              .append(zone.nameEn()).append('\\t').append(zone.nameFr()).append('\\n');
+            line(sb, ContentKeys.npc(npc.id()), npc.nameEn(), npc.nameFr());
+            line(sb, ContentKeys.npcTitle(npc.id()), npc.titleEn(), npc.titleFr());
+            line(sb, ContentKeys.npcDescription(npc.id()), npc.descriptionEn(), npc.descriptionFr());
+            for (String slot : ContentKeys.SLOTS) {
+                List<ContentLine> en = ContentKeys.dialogue(npc, slot, false);
+                List<ContentLine> fr = ContentKeys.dialogue(npc, slot, true);
+                for (int i = 0; i < en.size() && i < fr.size(); i++) {
+                    line(sb, en.get(i).key(), en.get(i).text(), fr.get(i).text());
+                }
+            }
         }
         for (QuestDef quest : Quests.all()) {
-            sb.append("quest.arcanum_realms.").append(quest.id()).append('\\t')
-              .append(quest.nameEn()).append('\\t').append(quest.nameFr()).append('\\n');
-            sb.append("quest.arcanum_realms.").append(quest.id()).append(".summary").append('\\t')
-              .append(quest.summaryEn()).append('\\t').append(quest.summaryFr()).append('\\n');
+            line(sb, ContentKeys.quest(quest.id()), quest.nameEn(), quest.nameFr());
+            line(sb, ContentKeys.questSummary(quest.id()), quest.summaryEn(), quest.summaryFr());
+            line(sb, ContentKeys.questRewards(quest.id()),
+                    QuestText.rewards(quest, false), QuestText.rewards(quest, true));
+            List<ContentLine> goalsEn = ContentKeys.questGoals(quest, false);
+            List<ContentLine> goalsFr = ContentKeys.questGoals(quest, true);
+            for (int i = 0; i < goalsEn.size() && i < goalsFr.size(); i++) {
+                line(sb, goalsEn.get(i).key(), goalsEn.get(i).text(), goalsFr.get(i).text());
+            }
+        }
+        for (GearDef gear : Gears.all()) {
+            line(sb, ContentKeys.gear(gear.id()), gear.nameEn(), gear.nameFr());
+        }
+        for (ZoneDef zone : Zones.all()) {
+            line(sb, ContentKeys.zone(zone.id()), zone.nameEn(), zone.nameFr());
         }
         System.out.print(sb);
     }
 }
 '''
+
+
 
 # Textes ecrits a la main : interface, messages, commandes, objets.
 MANUAL = {
@@ -315,6 +336,47 @@ MANUAL = {
     'arcanum_realms.command.deck.info': ['Deck: %s/%s cards, %s spells learned.',
                                          'Deck : %s/%s cartes, %s sorts appris.'],
 }
+
+
+def dump(jdk):
+    """Compile le moteur (avec le JDK donne) et renvoie l'export cle/anglais/francais."""
+    javac = os.path.join(jdk, 'bin', 'javac')
+    java = os.path.join(jdk, 'bin', 'java')
+    if not os.path.exists(javac):
+        sys.exit(f'javac introuvable : {javac}')
+    work = tempfile.mkdtemp(prefix='arcanum-lang-')
+    try:
+        core_files = []
+        for root, _dirs, files in os.walk(os.path.join(SRC, 'com', 'arcanumrealms', 'core')):
+            core_files += [os.path.join(root, f) for f in files if f.endswith('.java')]
+        dumper = os.path.join(work, 'DumpLang.java')
+        with open(dumper, 'w', encoding='utf-8') as f:
+            f.write(DUMPER)
+        subprocess.run([javac, '-encoding', 'UTF-8', '-nowarn', '-d', work] + core_files + [dumper],
+                       check=True)
+        return subprocess.run([java, '-Dfile.encoding=UTF-8', '-cp', work, 'DumpLang'],
+                              check=True, capture_output=True, text=True).stdout
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def tables(jdk):
+    """Renvoie les deux tables de traduction completes : (anglais, francais).
+
+    Contient les textes ecrits a la main (interface, commandes) et ceux exportes
+    du moteur (sorts, PNJ, dialogues, quetes, equipements, zones).
+    """
+    english, french = {}, {}
+    for key, values in MANUAL.items():
+        english[key] = values[0]
+        french[key] = values[1]
+    for line in dump(jdk).splitlines():
+        if not line.strip():
+            continue
+        key, en, fr = line.split('\t')
+        english[key] = en
+        french[key] = fr
+    return english, french
 
 
 def main():

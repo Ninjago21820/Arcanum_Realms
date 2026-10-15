@@ -57,6 +57,9 @@ public final class CoreTests {
         testQuestLog();
         testQuestRewards();
         testWikiAnchors();
+        testContentKeys();
+        testContentNames();
+        testContentOverride();
 
         System.out.println();
         System.out.println("Tests reussis : " + passed);
@@ -1072,6 +1075,214 @@ public final class CoreTests {
             check(Quests.get("the_harvest_lord_quest").goals().stream()
                             .anyMatch(g -> g instanceof QuestGoal.Defeat d && d.creatureId().equals("the_harvest_lord")),
                     "le seigneur des moissons est le boss de la quete");
+        });
+    }
+
+    // -------------------------------------------------- contenu modifiable
+
+    private static void testContentKeys() {
+        test("contenu : les cles de traduction sont uniques", () -> {
+            Set<String> seen = new LinkedHashSet<>();
+            List<String> duplicates = new ArrayList<>();
+            for (NpcDef npc : Npcs.all()) {
+                for (String key : List.of(ContentKeys.npc(npc.id()), ContentKeys.npcTitle(npc.id()),
+                        ContentKeys.npcDescription(npc.id()))) {
+                    if (!seen.add(key)) duplicates.add(key);
+                }
+                for (String slot : ContentKeys.SLOTS) {
+                    for (ContentLine line : ContentKeys.dialogue(npc, slot, true)) {
+                        if (!seen.add(line.key())) duplicates.add(line.key());
+                    }
+                }
+            }
+            for (Spell spell : SpellBook.all()) {
+                if (!seen.add(ContentKeys.spell(spell.id()))) duplicates.add(spell.id());
+                if (!seen.add(ContentKeys.spellDescription(spell.id()))) duplicates.add(spell.id());
+            }
+            for (QuestDef quest : Quests.all()) {
+                if (!seen.add(ContentKeys.quest(quest.id()))) duplicates.add(quest.id());
+                if (!seen.add(ContentKeys.questSummary(quest.id()))) duplicates.add(quest.id());
+                if (!seen.add(ContentKeys.questRewards(quest.id()))) duplicates.add(quest.id());
+                for (ContentLine goal : ContentKeys.questGoals(quest, true)) {
+                    if (!seen.add(goal.key())) duplicates.add(goal.key());
+                }
+            }
+            for (WorldCreature creature : Bestiary.all()) {
+                if (!seen.add(ContentKeys.creature(creature.id()))) duplicates.add(creature.id());
+            }
+            for (GearDef gear : Gears.all()) {
+                if (!seen.add(ContentKeys.gear(gear.id()))) duplicates.add(gear.id());
+            }
+            for (ZoneDef zone : Zones.all()) {
+                if (!seen.add(ContentKeys.zone(zone.id()))) duplicates.add(zone.id());
+            }
+            check(duplicates.isEmpty(), "cles en double : " + duplicates);
+            check(seen.size() > 600, "cles attendues, trouve " + seen.size());
+        });
+
+        test("contenu : chaque texte est traduisible et non vide", () -> {
+            for (NpcDef npc : Npcs.all()) {
+                for (String slot : ContentKeys.SLOTS) {
+                    List<ContentLine> fr = ContentKeys.dialogue(npc, slot, true);
+                    List<ContentLine> en = ContentKeys.dialogue(npc, slot, false);
+                    eq(fr.size(), en.size(), "autant de repliques en francais et en anglais pour " + npc.id());
+                    for (int i = 0; i < fr.size(); i++) {
+                        check(fr.get(i).translatable(), "replique sans cle : " + npc.id() + "/" + slot);
+                        check(!fr.get(i).text().isBlank() && !en.get(i).text().isBlank(),
+                                "replique vide : " + fr.get(i).key());
+                        eq(fr.get(i).key(), en.get(i).key(), "meme cle dans les deux langues");
+                    }
+                }
+            }
+            for (QuestDef quest : Quests.all()) {
+                List<ContentLine> goals = ContentKeys.questGoals(quest, true);
+                eq(quest.goals().size(), goals.size(), "un cle par objectif de " + quest.id());
+                for (ContentLine goal : goals) {
+                    check(goal.translatable() && !goal.text().isBlank(),
+                            "objectif sans cle : " + quest.id());
+                }
+                check(ContentKeys.questRewardLine(quest, true).translatable(),
+                        "recompense sans cle : " + quest.id());
+            }
+        });
+
+        test("contenu : le format des cles suit la convention", () -> {
+            eq("npc.arcanum_realms.lea_nightchant", ContentKeys.npc("lea_nightchant"), "cle de PNJ");
+            eq("npc.arcanum_realms.lea_nightchant.title", ContentKeys.npcTitle("lea_nightchant"),
+                    "cle de titre de PNJ");
+            eq("dialogue.arcanum_realms.lea_nightchant.greeting.0",
+                    ContentKeys.dialogue("lea_nightchant", ContentKeys.GREETING, 0), "cle de replique");
+            eq("spell.arcanum_realms.ember_kitten.name", ContentKeys.spell("ember_kitten"), "cle de sort");
+            eq("spell.arcanum_realms.ember_kitten.desc", ContentKeys.spellDescription("ember_kitten"),
+                    "cle de description de sort");
+            eq("creature.arcanum_realms.lost_soul", ContentKeys.creature("lost_soul"), "cle de creature");
+            eq("gear.arcanum_realms.ember_cowl", ContentKeys.gear("ember_cowl"), "cle d'equipement");
+            eq("zone.arcanum_realms.allee_braises", ContentKeys.zone("allee_braises"), "cle de zone");
+            eq("quest.arcanum_realms.the_cure", ContentKeys.quest("the_cure"), "cle de quete");
+            eq("quest.arcanum_realms.the_cure.summary", ContentKeys.questSummary("the_cure"),
+                    "cle de resume");
+            eq("quest.arcanum_realms.the_cure.goal.0", ContentKeys.questGoal("the_cure", 0),
+                    "cle d'objectif");
+            eq("quest.arcanum_realms.the_cure.rewards", ContentKeys.questRewards("the_cure"),
+                    "cle de recompenses");
+            eq(4, ContentKeys.SLOTS.size(), "quatre moments de dialogue");
+        });
+
+        test("contenu : les fabriques de lignes portent les bonnes cles", () -> {
+            NpcDef hanna = Npcs.get("hanna_emberwright");
+            ContentLine headline = ContentKeys.npcHeadline(hanna, true);
+            check(headline.translatable(), "l'en-tete de dialogue est traduisible");
+            check(headline.text().startsWith(hanna.nameFr()), "l'en-tete commence par le nom du PNJ");
+            QuestDef quest = Quests.get("the_cure");
+            ContentLine name = ContentKeys.questName(quest, true);
+            eq(ContentKeys.quest(quest.id()), name.key(), "nom de quete");
+            ContentLine rewards = ContentKeys.questRewardLine(quest, true);
+            eq(ContentKeys.questRewards(quest.id()), rewards.key(), "recompenses de quete");
+            ContentLine spell = ContentKeys.spellName(SpellBook.get("ember_kitten"), true);
+            eq(ContentKeys.spell("ember_kitten"), spell.key(), "nom de sort");
+            check(!spell.text().isBlank(), "nom de sort non vide");
+        });
+    }
+    /**
+     * Le renommage doit fonctionner partout : les textes composes par le moteur
+     * contiennent des noms par defaut, et les deux langues doivent y figurer
+     * (le journal de combat melange le texte localise et les noms anglais).
+     */
+    private static void testContentNames() {
+        test("renommage : la table des noms couvre les deux langues", () -> {
+            List<String[]> sources = ContentNames.sources();
+            check(sources.size() > 400, "table fournie (trouve " + sources.size() + ")");
+            for (String[] entry : sources) {
+                check(entry[0] != null && !entry[0].isBlank(), "nom par defaut non vide");
+                check(entry[1] != null && entry[1].startsWith("spell.arcanum_realms.")
+                        || entry[1].startsWith("creature.arcanum_realms.")
+                        || entry[1].startsWith("npc.arcanum_realms.")
+                        || entry[1].startsWith("gear.arcanum_realms.")
+                        || entry[1].startsWith("zone.arcanum_realms.")
+                        || entry[1].startsWith("school.arcanum_realms."),
+                        "cle connue pour " + entry[0] + " (obtenu " + entry[1] + ")");
+            }
+        });
+
+        test("renommage : un sort est reconnu dans les deux langues", () -> {
+            Spell spell = SpellBook.get("ember_kitten");
+            eq(ContentKeys.spell("ember_kitten"), ContentNames.keyOf(spell.nameEn()),
+                    "nom anglais reconnu");
+            eq(ContentKeys.spell("ember_kitten"), ContentNames.keyOf(spell.nameFr()),
+                    "nom francais reconnu");
+            check(ContentNames.keyOf("Nom qui n'existe pas") == null, "nom inconnu rejete");
+        });
+
+        test("renommage : creatures, PNJ, zones et objets sont reconnus", () -> {
+            WorldCreature creature = Bestiary.get("ember_elf_hunter");
+            check(ContentNames.keyOf(creature.nameFr()) != null, "creature francaise reconnue");
+            NpcDef npc = Npcs.get("hanna_emberwright");
+            eq(ContentKeys.npc("hanna_emberwright"), ContentNames.keyOf(npc.nameFr()), "PNJ reconnu");
+            eq(ContentKeys.npcTitle("hanna_emberwright"), ContentNames.keyOf(npc.titleFr()), "titre reconnu");
+            ZoneDef zone = Zones.get("allee_braises");
+            eq(ContentKeys.zone("allee_braises"), ContentNames.keyOf(zone.nameFr()), "zone reconnue");
+            GearDef gear = Gears.ofTier(1).get(0);
+            eq(ContentKeys.gear(gear.id()), ContentNames.keyOf(gear.nameFr()), "equipement reconnu");
+        });
+
+        test("renommage : les noms longs passent avant les noms courts", () -> {
+            List<String[]> sources = ContentNames.sources();
+            for (int i = 1; i < sources.size(); i++) {
+                check(sources.get(i - 1)[0].length() >= sources.get(i)[0].length(),
+                        "table triee du plus long au plus court");
+            }
+        });
+    }
+
+    /**
+     * Verifie qu'un texte reecrit remplace bien celui du mod, cle par cle : c'est
+     * la garantie qu'un pack de ressources suffit, sans recompiler.
+     */
+    private static void testContentOverride() {
+        test("surcharge : chaque famille de texte expose sa cle", () -> {
+            NpcDef npc = Npcs.get("hanna_emberwright");
+            eq("npc.arcanum_realms.hanna_emberwright", ContentKeys.npcName(npc, true).key(), "PNJ");
+            eq("dialogue.arcanum_realms.hanna_emberwright.greeting.0",
+                    ContentKeys.dialogue(npc, ContentKeys.GREETING, true).get(0).key(), "dialogue");
+            eq("spell.arcanum_realms.ember_kitten.name",
+                    ContentKeys.spellName(SpellBook.get("ember_kitten"), true).key(), "sort");
+            eq("creature.arcanum_realms.ember_elf_hunter",
+                    ContentKeys.creatureName(Bestiary.get("ember_elf_hunter"), true).key(), "creature");
+            eq("quest.arcanum_realms.the_cure", ContentKeys.questName(Quests.get("the_cure"), true).key(),
+                    "quete");
+        });
+
+        test("surcharge : les dialogues numerotent leurs repliques sans trou", () -> {
+            for (NpcDef npc : Npcs.all()) {
+                for (String slot : ContentKeys.SLOTS) {
+                    List<ContentLine> lines = ContentKeys.dialogue(npc, slot, true);
+                    for (int i = 0; i < lines.size(); i++) {
+                        eq(ContentKeys.dialogue(npc.id(), slot, i), lines.get(i).key(),
+                                "replique " + i + " de " + npc.id() + "." + slot);
+                        check(lines.get(i).translatable(), "replique traduisible");
+                        check(!lines.get(i).text().isBlank(), "replique non vide");
+                    }
+                }
+            }
+        });
+
+        test("surcharge : chaque nom par defaut retrouve sa cle", () -> {
+            java.util.Map<String, String> keys = new java.util.HashMap<>();
+            java.util.List<String> ambiguities = new java.util.ArrayList<>();
+            for (String[] entry : ContentNames.sources()) {
+                String known = keys.putIfAbsent(entry[0], entry[1]);
+                if (known != null && !known.equals(entry[1])) {
+                    ambiguities.add(entry[0] + " -> " + known + " / " + entry[1]);
+                }
+            }
+            check(keys.size() > 200, "noms distincts nombreux (trouve " + keys.size() + ")");
+            // deux contenus qui portent exactement le meme nom rendraient le
+            // renommage ambigu : on veut le savoir tout de suite
+            check(ambiguities.isEmpty(), "noms ambigus : " + ambiguities.size()
+                    + " " + ambiguities.stream().limit(3).toList());
+            for (String name : keys.keySet()) {
+                check(ContentNames.keyOf(name) != null, "nom resolvable : " + name);
+            }
         });
     }
 }
