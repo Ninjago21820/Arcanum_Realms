@@ -50,6 +50,10 @@ public final class ArcanumConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ARENA_ENCOUNTERS;
     public static final ForgeConfigSpec.IntValue ARENA_RADIUS;
 
+    /** Comportement des personnages (PNJ). */
+    public static final ForgeConfigSpec.BooleanValue NPC_WANDER;
+    public static final ForgeConfigSpec.IntValue NPC_WANDER_RADIUS;
+
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
 
@@ -128,10 +132,36 @@ public final class ArcanumConfig {
                 .defineInRange("arenaRadius", 6, 2, 32);
         b.pop();
 
+        b.comment("Comportement des personnages (PNJ)").push("npc");
+        NPC_WANDER = b.comment("Les PNJ font quelques pas autour de leur poste (comme des villageois).",
+                        "Desactivez pour qu'ils restent strictement immobiles, comme dans Wizard101.")
+                .define("wander", true);
+        NPC_WANDER_RADIUS = b.comment("Distance maximale, en blocs, a laquelle un PNJ s'eloigne de son poste.")
+                .defineInRange("wanderRadius", 6, 1, 32);
+        b.pop();
+
         SPEC = b.build();
     }
 
     private ArcanumConfig() {}
+
+    /** Lecture sure de la promenade des PNJ (valeur par defaut si la config n'est pas chargee). */
+    public static boolean wanderEnabled() {
+        try {
+            return NPC_WANDER.get();
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** Rayon de promenade des PNJ, en blocs. */
+    public static int wanderRadius() {
+        try {
+            return NPC_WANDER_RADIUS.get();
+        } catch (Throwable t) {
+            return 6;
+        }
+    }
 
     /** Lecture sure de la limite de deck cote client (valeur par defaut si la config n'est pas encore chargee). */
     public static int deckSizeLimitClient() {

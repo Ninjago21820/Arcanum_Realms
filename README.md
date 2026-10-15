@@ -17,6 +17,7 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
 - [Premiers pas en jeu](#premiers-pas-en-jeu)
 - [Commandes](#commandes)
 - [Ecrire vos propres textes](#ecrire-vos-propres-textes)
+- [Apparence des personnages](#apparence-des-personnages)
 - [Touches](#touches)
 - [Reglages](#reglages)
 - [Documentation](#documentation)
@@ -71,6 +72,8 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
   objectifs *vaincre / recolter / parler / se rendre a*.
 - **Journal de quetes** persistant, progression partagee dans un rayon de 40 blocs, recompenses
   en XP, or, sorts, equipement et choix de recompense.
+- **Personnages humanoïdes** : 19 PNJ avec visage, coiffure et tenue propres, robe de sorcier
+  pour les joueurs (couche extérieure, leur peau reste visible), comportement de villageois.
 - **Textes entierement a vous** : dialogues, noms de PNJ et noms de sorts sont exposes en
   **cles de traduction** — un pack de ressources suffit pour les reecrire (et jusqu'au journal
   de combat), sans recompiler. Voir [Ecrire vos propres textes](#ecrire-vos-propres-textes).
@@ -185,6 +188,28 @@ courbe d'XP et rencontres du Cercle Arcanique. Le detail de chaque cle est dans
 
 ---
 
+## Apparence des personnages
+
+**Tous les personnages sont des humanoïdes habillés dans le style de Minecraft** : les 19 PNJ
+ont chacun leur visage, leur coiffure et leur tenue (le directeur et sa barbe, les gardes et
+leur casque, les professeurs et le chapeau pointu de leur école, le pêcheur et son chapeau de
+paille), et **les joueurs portent une robe de sorcier** aux couleurs de leur école, posée
+par-dessus leur propre peau : leur visage, leurs cheveux et leurs mains restent visibles.
+
+Les personnages se comportent comme des villageois : ils suivent le joueur du regard, font
+quelques pas autour de leur poste et saluent d'un geste de la main au passage.
+
+```bash
+python3 tools/preview-skins.py            # planches d'aperçu : docs/skins*.png
+python3 tools/preview-skins.py --check    # vérifie chaque apparence (format, visage, coiffe)
+```
+
+Les apparences sont des images de `textures/entity/npc/<pnj>.png` et
+`textures/entity/wizard/<ecole>.png` : **un pack de ressources peut les remplacer** sans
+recompiler le mod. Tout est détaillé dans [docs/apparences.md](docs/apparences.md).
+
+---
+
 ## Ecrire vos propres textes
 
 **Dialogues, noms de PNJ et noms de sorts sont entierement a vous** : ils passent par
@@ -225,6 +250,8 @@ moments d'un dialogue, comment ecrire les textes directement dans le code source
   calcul des degats, fizzle, critiques, etats, IA, XP, reglages).
 - [docs/spells.md](docs/spells.md) : catalogue complet des 112 sorts et des 15 creatures,
   **genere automatiquement** depuis le moteur de jeu.
+- [docs/apparences.md](docs/apparences.md) : apparence des PNJ et des joueurs, planches
+  d'apercu, controle du format des peaux, comportement des personnages.
 - [docs/content.md](docs/content.md) : ecrire vos dialogues, noms de PNJ et noms de sorts
   (pack de ressources, conventions des cles, verification).
 - [docs/world.md](docs/world.md) : contenu du monde — zones, bestiaire avec resistances et
@@ -261,6 +288,8 @@ python3 tools/generate-lang.py /chemin/jdk17     # fichiers de langue a partir d
 python3 tools/generate-docs.py /chemin/jdk17       # docs/spells.md
 python3 tools/generate-world-docs.py /chemin/jdk17 # docs/world.md
 python3 tools/make-content-pack.py /chemin/jdk17   # content/ : vos textes a editer
+python3 tools/character_skins.py                   # apparences des PNJ et robes des joueurs
+python3 tools/preview-skins.py                     # planches d'apercu des apparences
 ```
 
 ---
@@ -305,6 +334,9 @@ evite toute desynchronisation.
 | 1 | Combat complet : ecoles, sorts, deck, pips, duels, IA, XP, interface | **livree** |
 | 2 | Monde : 7 zones, 35 creatures, 19 PNJ, 50 quetes, dialogues, journal, equipement, butin | **livree** |
 | 3 | Familiers, jardinage, peche, duels entre joueurs (PvP) | a venir |
+
+Les **apparences** (personnages humanoïdes, robe des joueurs) et les **textes surchargeables**
+(dialogues, noms de PNJ, noms de sorts) sont livrés en plus des étapes 1 et 2.
 
 ---
 

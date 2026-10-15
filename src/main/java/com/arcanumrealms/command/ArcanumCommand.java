@@ -290,6 +290,7 @@ public class ArcanumCommand {
         if (npc == null) return null;
         npc.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot() + 180f, 0f);
         npc.setNpcId(def.id());
+        npc.setPost(pos);
         // Les PNJ deja presents sont remplaces pour eviter les doublons.
         for (WizardNpcEntity existing : level.getEntitiesOfClass(WizardNpcEntity.class,
                 new net.minecraft.world.phys.AABB(pos).inflate(2.5))) {

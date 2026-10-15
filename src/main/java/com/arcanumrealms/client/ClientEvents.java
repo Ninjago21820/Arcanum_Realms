@@ -57,8 +57,15 @@ public final class ClientEvents {
         DuelHudOverlay.render(event.getGuiGraphics());
     }
 
+    /** A l'arrivee : demander la fiche du sorcier, pour connaitre son ecole des le depart. */
+    @SubscribeEvent
+    public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        NetworkHandler.sendToServer(new RequestWizardDataPacket());
+    }
+
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientBattleState.reset();
+        ClientBattleState.setWizard(null);
     }
 }
