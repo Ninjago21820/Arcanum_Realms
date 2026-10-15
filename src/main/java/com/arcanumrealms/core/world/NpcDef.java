@@ -16,7 +16,8 @@ import java.util.List;
  * @param school      ecole enseignee (pour les professeurs), sinon null
  * @param level       niveau du PNJ (les professeurs sont plus hauts)
  * @param entity      entite Minecraft utilisee pour le representer (ex. minecraft:villager)
- * @param outfit      couleur de sa tenue (0xRRGGBB)
+ * @param outfit      couleur de sa tenue (0xRRGGBB), qui teinte aussi sa robe 3D
+ * @param attire      coiffe portee (voir {@link Attire})
  */
 public record NpcDef(String id,
                      String nameEn,
@@ -29,6 +30,7 @@ public record NpcDef(String id,
                      int level,
                      String entity,
                      int outfit,
+                     Attire attire,
                      String descriptionEn,
                      String descriptionFr,
                      Dialogue greeting,
@@ -48,6 +50,15 @@ public record NpcDef(String id,
     public String title(boolean french) { return french ? titleFr : titleEn; }
 
     public String description(boolean french) { return french ? descriptionFr : descriptionEn; }
+
+    /** Coiffe portee par ce PNJ. */
+    public Attire attire() { return attire == null ? Attire.NONE : attire; }
+
+    /** Couleur de la tenue (0xRRGGBB), utilisee pour teinter la robe 3D. */
+    public float[] outfitColour() {
+        return new float[]{((outfit >> 16) & 0xff) / 255f, ((outfit >> 8) & 0xff) / 255f,
+                (outfit & 0xff) / 255f};
+    }
 
     /** "Professeure Cendrelune, maitresse de la Pyromancie" */
     public String fullName(boolean french) {
@@ -69,6 +80,7 @@ public record NpcDef(String id,
         private int level = 5;
         private String entity = "minecraft:villager";
         private int outfit = 0x9B59B6;
+        private Attire attire = Attire.NONE;
         private String descriptionEn = "", descriptionFr;
         private Dialogue greeting = Dialogue.EMPTY;
         private Dialogue inProgress = Dialogue.EMPTY;
@@ -87,6 +99,9 @@ public record NpcDef(String id,
         public Builder level(int level) { this.level = level; return this; }
         public Builder entity(String entity) { this.entity = entity; return this; }
         public Builder outfit(int rgb) { this.outfit = rgb; return this; }
+
+        /** Coiffe portee par ce PNJ (voir {@link Attire}). */
+        public Builder attire(Attire attire) { this.attire = attire; return this; }
         public Builder description(String en, String fr) { this.descriptionEn = en; this.descriptionFr = fr; return this; }
         public Builder greeting(Dialogue dialogue) { this.greeting = dialogue; return this; }
         public Builder inProgress(Dialogue dialogue) { this.inProgress = dialogue; return this; }
@@ -99,8 +114,8 @@ public record NpcDef(String id,
             if (nameFr == null) nameFr = nameEn;
             if (descriptionFr == null) descriptionFr = descriptionEn;
             return new NpcDef(id, nameEn, nameFr, titleEn, titleFr, zoneId, role, school, level, entity,
-                    outfit, descriptionEn, descriptionFr, greeting, inProgress, completion, farewell,
-                    givesQuests, endsQuests);
+                    outfit, attire, descriptionEn, descriptionFr, greeting, inProgress, completion,
+                    farewell, givesQuests, endsQuests);
         }
     }
 }

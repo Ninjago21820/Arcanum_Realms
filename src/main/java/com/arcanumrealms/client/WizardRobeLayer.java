@@ -1,66 +1,127 @@
 package com.arcanumrealms.client;
 
 import com.arcanumrealms.ArcanumRealms;
+import com.arcanumrealms.client.model.WizardRobeModel;
 import com.arcanumrealms.core.school.School;
+import com.arcanumrealms.core.world.Attire;
+import com.arcanumrealms.core.world.NpcDef;
+import com.arcanumrealms.entity.WizardNpcEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Habille les joueurs en sorciers, sans toucher a leur apparence.
+ * Pose la tenue 3D sur un personnage : robe, cape d'epaules, manches, ceinture,
+ * jupe et coiffe.
  *
- * <p>La robe est une texture posee sur la <b>couche exterieure</b> du modele de
- * joueur : celle qui sert d'ordinaire au chapeau, a la veste et aux manches. Le
- * joueur garde donc totalement son apparence Minecraft (sa peau, ses cheveux,
- * ses vetements), avec par-dessus le chapeau pointu et la robe de son ecole.
+ * <p>La meme couche sert aux joueurs et aux PNJ : seule change la maniere de
+ * choisir la couleur (ecole du joueur, couleur de tenue du PNJ) et la coiffe
+ * (chapeau pointu pour un sorcier, coiffe declaree pour un PNJ).
  *
- * <p>La couche suit l'ecole du joueur : elle apparait des qu'un sorcier a choisi
- * son ecole, et change s'il en change.
+ * <p>La tenue suit le corps : le torse, les bras et la tete de la couche
+ * reprennent la position de ceux du personnage a chaque image, donc la jupe
+ * tourne avec le corps et les manches avec les bras.
  */
-public class WizardRobeLayer extends RenderLayer<AbstractClientPlayer,
-        PlayerModel<AbstractClientPlayer>> {
+public class WizardRobeLayer<T extends LivingEntity, M extends HumanoidModel<T>>
+        extends RenderLayer<T, M> {
 
-    private static final ResourceLocation NEUTRAL =
-            new ResourceLocation(ArcanumRealms.MOD_ID, "textures/entity/wizard/neutral.png");
+    private static final ResourceLocation TEXTURE =
+            new ResourceLocation(ArcanumRealms.MOD_ID, "textures/entity/wizard/robe.png");
 
-    public WizardRobeLayer(RenderLayerParent<AbstractClientPlayer,
-            PlayerModel<AbstractClientPlayer>> parent) {
+    private final WizardRobeModel model;
+
+    public WizardRobeLayer(RenderLayerParent<T, M> parent, WizardRobeModel model) {
         super(parent);
+        this.model = model;
     }
 
     @Override
-    public void render(PoseStack pose, MultiBufferSource buffers, int light,
-                       AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
-                       float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-        if (player.isSpectator() || player.isInvisible()) return;
+    public void render(PoseStack pose, MultiBufferSource buffers, int light, T entity,
+                       float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
+                       float netHeadYaw, float headPitch) {
+        if (entity.isInvisible() || entity.isSpectator()) return;
 
-        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(textureFor()));
-        // Le modele entier est redessine avec la texture de la robe : les cases
-        // transparentes de la couche interieure ne dessinent rien, seules les
-        // parties de la couche exterieure (chapeau, veste, manches, bottes)
-        // apparaissent.
-        getParentModel().renderToBuffer(pose, consumer, light, OverlayTexture.NO_OVERLAY,
-                1.0f, 1.0f, 1.0f, 1.0f);
+        Style style = styleOf(entity);
+        if (style == null) return;
+
+        // la tenue reprend la pose du personnage : torse, bras et tete
+        M body = getParentModel();
+        this.model.head.copyFrom(body.head);
+        this.model.body.copyFrom(body.body);
+        this.model.rightArm.copyFrom(body.rightArm);
+        this.model.leftArm.copyFrom(body.leftArm);
+
+        // une seule coiffe a la fois
+        showHat(style.attire);
+
+        // leger balancement de la jupe quand le personnage marche, pour que la robe
+        // ne paraisse pas figee
+        this.model.body.xRot += (float) Math.sin(ageInTicks * 0.06f) * 0.02f
+                + limbSwingAmount * 0.05f;
+
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+        float red = style.tinted ? style.red : 1f;
+        float green = style.tinted ? style.green : 1f;
+        float blue = style.tinted ? style.blue : 1f;
+        this.model.renderToBuffer(pose, consumer, light, OverlayTexture.NO_OVERLAY,
+                red, green, blue, 1f);
     }
 
-    /** Robe de l'ecole du joueur, ou robe neutre s'il n'en a pas encore choisi. */
-    private static ResourceLocation textureFor() {
-        String school = schoolId();
-        if (school == null || school.isBlank()) return NEUTRAL;
-        return new ResourceLocation(ArcanumRealms.MOD_ID, "textures/entity/wizard/" + school + ".png");
+    private void showHat(Attire attire) {
+        boolean pointed = attire == Attire.POINTED;
+        boolean hood = attire == Attire.HOOD;
+        boolean helm = attire == Attire.HELM;
+        boolean cap = attire == Attire.CAP;
+        boolean straw = attire == Attire.STRAW;
+        for (String piece : new String[]{"hat_brim", "hat_cone_1", "hat_cone_2", "hat_cone_3",
+                "hat_tip"}) {
+            this.model.setVisible(piece, pointed);
+        }
+        this.model.setVisible("hood_back", hood);
+        this.model.setVisible("hood_cowl", hood);
+        for (String piece : new String[]{"helm_cap", "helm_nose", "helm_cheek", "helm_cheek_2"}) {
+            this.model.setVisible(piece, helm);
+        }
+        this.model.setVisible("cap_crown", cap || straw);
+        this.model.setVisible("cap_brim", cap);
+        this.model.setVisible("straw_crown", false);
+        this.model.setVisible("straw_brim", straw);
+        this.model.setVisible("mantle", !hood);
+        this.model.setVisible("mantle_trim", !hood);
     }
 
-    private static String schoolId() {
-        var data = ClientBattleState.wizard();
-        if (data == null) return null;
-        School school = data.school();
-        return school == null ? null : school.id();
+    /** Couleur et coiffe a porter sur ce personnage, ou {@code null} pour ne rien dessiner. */
+    private static Style styleOf(LivingEntity entity) {
+        if (entity instanceof WizardNpcEntity npc) {
+            NpcDef def = npc.def();
+            if (def == null) return null;
+            float[] colour = def.outfitColour();
+            return new Style(true, colour[0], colour[1], colour[2], def.attire());
+        }
+        if (entity instanceof net.minecraft.client.player.AbstractClientPlayer) {
+            if (!com.arcanumrealms.ArcanumConfig.wizardRobeEnabled()) return null;
+            var data = ClientBattleState.wizard();
+            School school = data == null ? null : data.school();
+            Attire attire = com.arcanumrealms.ArcanumConfig.playerHatEnabled()
+                    ? Attire.POINTED : Attire.NONE;
+            if (school == null) {
+                // pas encore d'ecole : une robe neutre, sans teinte
+                return new Style(false, 1f, 1f, 1f, attire);
+            }
+            int rgb = school.color();
+            return new Style(true, ((rgb >> 16) & 0xff) / 255f, ((rgb >> 8) & 0xff) / 255f,
+                    (rgb & 0xff) / 255f, attire);
+        }
+        return null;
     }
+
+    /** Ce qu'il faut dessiner sur un personnage : une couleur et une coiffe. */
+    private record Style(boolean tinted, float red, float green, float blue, Attire attire) {}
 }

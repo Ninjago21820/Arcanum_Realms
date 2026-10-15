@@ -72,8 +72,9 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
   objectifs *vaincre / recolter / parler / se rendre a*.
 - **Journal de quetes** persistant, progression partagee dans un rayon de 40 blocs, recompenses
   en XP, or, sorts, equipement et choix de recompense.
-- **Personnages humanoïdes** : 19 PNJ avec visage, coiffure et tenue propres, robe de sorcier
-  pour les joueurs (couche extérieure, leur peau reste visible), comportement de villageois.
+- **Personnages humanoïdes et tenues 3D** : 19 PNJ avec visage, coiffure et tenue, tenue de
+  sorcier volumétrique (chapeau en cône, cape, manches, ceinture, jupe) teintée par l'école
+  pour les joueurs, comportement de villageois.
 - **Textes entierement a vous** : dialogues, noms de PNJ et noms de sorts sont exposes en
   **cles de traduction** — un pack de ressources suffit pour les reecrire (et jusqu'au journal
   de combat), sans recompiler. Voir [Ecrire vos propres textes](#ecrire-vos-propres-textes).
@@ -190,23 +191,32 @@ courbe d'XP et rencontres du Cercle Arcanique. Le detail de chaque cle est dans
 
 ## Apparence des personnages
 
-**Tous les personnages sont des humanoïdes habillés dans le style de Minecraft** : les 19 PNJ
-ont chacun leur visage, leur coiffure et leur tenue (le directeur et sa barbe, les gardes et
-leur casque, les professeurs et le chapeau pointu de leur école, le pêcheur et son chapeau de
-paille), et **les joueurs portent une robe de sorcier** aux couleurs de leur école, posée
-par-dessus leur propre peau : leur visage, leurs cheveux et leurs mains restent visibles.
+**Tous les personnages sont des humanoïdes habillés dans le style de Minecraft**, et leur
+tenue est un **vrai modèle 3D** : chapeau en cône, cape d'épaules, manches plus larges que les
+bras, ceinture dorée et jupe évasée. Les 19 PNJ ont chacun leur peau et leur coiffure (le
+directeur et son grand chapeau, les gardes et leur casque à nasal, les professeurs et le
+chapeau pointu de leur école, le pêcheur et son chapeau de paille, les esprits et leur
+capuche), et **les joueurs portent la tenue de sorcier teintée aux couleurs de leur école** —
+par-dessus leur propre peau, dont ils gardent le visage, les cheveux et les mains.
+
+```bash
+python3 tools/preview-skins.py --check    # format des apparences et de la tenue 3D
+```
 
 Les personnages se comportent comme des villageois : ils suivent le joueur du regard, font
 quelques pas autour de leur poste et saluent d'un geste de la main au passage.
 
 ```bash
 python3 tools/preview-skins.py            # planches d'aperçu : docs/skins*.png
-python3 tools/preview-skins.py --check    # vérifie chaque apparence (format, visage, coiffe)
+python3 tools/preview-skins.py --check    # vérifie chaque apparence et la tenue 3D
 ```
 
-Les apparences sont des images de `textures/entity/npc/<pnj>.png` et
-`textures/entity/wizard/<ecole>.png` : **un pack de ressources peut les remplacer** sans
-recompiler le mod. Tout est détaillé dans [docs/apparences.md](docs/apparences.md).
+La tenue 3D se décrit une ligne par pièce dans `client/model/WizardRobeModel.java`
+(`box(head, "hat_cone_1", 44, 0, -4F, -11.5F, -4F, 8F, 2F, 8F);`) : le générateur de textures,
+les aperçus et le contrôle du format relisent ce fichier, donc tout suit. Les apparences sont
+des images de `textures/entity/npc/<pnj>.png` et `textures/entity/wizard/robe.png` :
+**un pack de ressources peut les remplacer** sans recompiler le mod. Tout est détaillé dans
+[docs/apparences.md](docs/apparences.md).
 
 ---
 
@@ -250,8 +260,8 @@ moments d'un dialogue, comment ecrire les textes directement dans le code source
   calcul des degats, fizzle, critiques, etats, IA, XP, reglages).
 - [docs/spells.md](docs/spells.md) : catalogue complet des 112 sorts et des 15 creatures,
   **genere automatiquement** depuis le moteur de jeu.
-- [docs/apparences.md](docs/apparences.md) : apparence des PNJ et des joueurs, planches
-  d'apercu, controle du format des peaux, comportement des personnages.
+- [docs/apparences.md](docs/apparences.md) : peaux des PNJ, modele 3D des tenues (chapeau,
+  cape, manches, jupe), planches d'apercu, controle du format, comportement des personnages.
 - [docs/content.md](docs/content.md) : ecrire vos dialogues, noms de PNJ et noms de sorts
   (pack de ressources, conventions des cles, verification).
 - [docs/world.md](docs/world.md) : contenu du monde — zones, bestiaire avec resistances et

@@ -50,6 +50,10 @@ public final class ArcanumConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ARENA_ENCOUNTERS;
     public static final ForgeConfigSpec.IntValue ARENA_RADIUS;
 
+    /** Apparence : tenue 3D des personnages. */
+    public static final ForgeConfigSpec.BooleanValue WIZARD_ROBE;
+    public static final ForgeConfigSpec.BooleanValue PLAYER_HAT;
+
     /** Comportement des personnages (PNJ). */
     public static final ForgeConfigSpec.BooleanValue NPC_WANDER;
     public static final ForgeConfigSpec.IntValue NPC_WANDER_RADIUS;
@@ -132,6 +136,15 @@ public final class ArcanumConfig {
                 .defineInRange("arenaRadius", 6, 2, 32);
         b.pop();
 
+        b.comment("Apparence des personnages").push("render");
+        WIZARD_ROBE = b.comment("Les joueurs portent la robe de sorcier 3D (chapeau, cape, manches, ceinture, jupe).",
+                        "La robe est teintee par la couleur de l'ecole du joueur.")
+                .define("wizardRobe", true);
+        PLAYER_HAT = b.comment("Le chapeau pointu fait partie de la robe des joueurs.",
+                        "Desactivez-le si vous preferez jouer tete nue.")
+                .define("playerHat", true);
+        b.pop();
+
         b.comment("Comportement des personnages (PNJ)").push("npc");
         NPC_WANDER = b.comment("Les PNJ font quelques pas autour de leur poste (comme des villageois).",
                         "Desactivez pour qu'ils restent strictement immobiles, comme dans Wizard101.")
@@ -144,6 +157,24 @@ public final class ArcanumConfig {
     }
 
     private ArcanumConfig() {}
+
+    /** Vrai si les joueurs portent la robe de sorcier 3D. */
+    public static boolean wizardRobeEnabled() {
+        try {
+            return WIZARD_ROBE.get();
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** Vrai si les joueurs portent le chapeau pointu. */
+    public static boolean playerHatEnabled() {
+        try {
+            return PLAYER_HAT.get();
+        } catch (Throwable t) {
+            return true;
+        }
+    }
 
     /** Lecture sure de la promenade des PNJ (valeur par defaut si la config n'est pas chargee). */
     public static boolean wanderEnabled() {

@@ -1,6 +1,7 @@
 package com.arcanumrealms.client;
 
 import com.arcanumrealms.ArcanumRealms;
+import com.arcanumrealms.client.model.WizardRobeModel;
 import com.arcanumrealms.entity.WizardNpcEntity;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayers;
@@ -18,9 +19,9 @@ import net.minecraft.resources.ResourceLocation;
  * joueur, un pack de ressources peut remplacer une apparence : il suffit de
  * fournir un fichier du meme nom.
  *
- * <p>La couche exterieure du modele (chapeau, veste, manches) est dessinee par
- * le meme modele : les chapeaux pointus, capuches et casques n'ont donc besoin
- * d'aucun modele supplementaire.
+ * <p>La tenue elle-meme est un modele 3D pose par-dessus (voir
+ * {@link WizardRobeLayer}) : chapeau pointu, capuche ou casque en volume, cape
+ * d'epaules, manches larges, ceinture et jupe evasee.
  */
 public class WizardNpcRenderer extends HumanoidMobRenderer<WizardNpcEntity,
         HumanoidModel<WizardNpcEntity>> {
@@ -31,6 +32,9 @@ public class WizardNpcRenderer extends HumanoidMobRenderer<WizardNpcEntity,
     public WizardNpcRenderer(EntityRendererProvider.Context context) {
         super(context, new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER)), 0.5f);
         this.addLayer(new CustomHeadLayer<>(this, context.getModelSet()));
+        // la tenue 3D : chapeau, cape d'epaules, manches, ceinture et jupe
+        this.addLayer(new WizardRobeLayer<>(this,
+                new WizardRobeModel(context.bakeLayer(WizardRobeModel.LAYER))));
     }
 
     @Override

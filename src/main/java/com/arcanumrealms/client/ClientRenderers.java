@@ -1,7 +1,9 @@
 package com.arcanumrealms.client;
 
 import com.arcanumrealms.ArcanumRealms;
+import com.arcanumrealms.client.model.WizardRobeModel;
 import com.arcanumrealms.registry.ModEntities;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -32,6 +34,12 @@ public final class ClientRenderers {
         event.registerEntityRenderer(ModEntities.WIZARD_NPC.get(), WizardNpcRenderer::new);
     }
 
+    /** Le modele de la tenue 3D (chapeau, cape, manches, ceinture, jupe). */
+    @SubscribeEvent
+    public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(WizardRobeModel.LAYER, WizardRobeModel::createBodyLayer);
+    }
+
     /**
      * Ajoute la robe aux deux variantes du modele de joueur (classique et fine).
      * C'est un ajout de couche : rien n'est remplace, donc la peau du joueur et
@@ -41,7 +49,10 @@ public final class ClientRenderers {
     public static void addPlayerLayers(EntityRenderersEvent.AddLayers event) {
         for (String skin : event.getSkins()) {
             PlayerRenderer renderer = event.getSkin(skin);
-            if (renderer != null) renderer.addLayer(new WizardRobeLayer(renderer));
+            if (renderer == null) continue;
+            renderer.addLayer(new WizardRobeLayer<>(renderer,
+                    new WizardRobeModel(Minecraft.getInstance().getEntityModels()
+                            .bakeLayer(WizardRobeModel.LAYER))));
         }
     }
 }

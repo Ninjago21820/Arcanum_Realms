@@ -57,7 +57,7 @@ public final class Npcs {
         add(NpcDef.builder(id)
                 .name(en, fr).title(titleEn, titleFr)
                 .zone("bosquet").role(NpcRole.TRAINER).school(school).level(level)
-                .entity(NPC_ENTITY).outfit(outfit)
+                .entity(NPC_ENTITY).outfit(outfit).attire(Attire.POINTED)
                 .description("Teaches " + school.displayEn() + " magic in the grove.",
                         "Enseigne la magie " + school.displayFr() + " dans le bosquet.")
                 .greeting(greeting).inProgress(quest).completion(done)
@@ -76,6 +76,7 @@ public final class Npcs {
                 .title("Headmaster of the Arcane City", "Directeur de la Cite des Arcanes")
                 .zone("grand_place").role(NpcRole.QUEST_GIVER).level(50)
                 .entity(NPC_ENTITY).outfit(0x8E6BC8)
+                .attire(Attire.POINTED)
                 .description("Runs the city and hands out the first errands.",
                         "Dirige la cite et confie les premieres commissions.")
                 .greeting(Dialogue.of(
@@ -104,6 +105,7 @@ public final class Npcs {
                 .title("Keeper of the gear shop", "Tenanciere de la boutique")
                 .zone("grand_place").role(NpcRole.SHOPKEEPER).level(20)
                 .entity(NPC_ENTITY).outfit(0xD9A93C)
+                .attire(Attire.CAP)
                 .description("Buys nothing, sells everything, and knows every rumour.",
                         "N'achete rien, vend tout, et connait toutes les rumeurs.")
                 .greeting(Dialogue.of(
@@ -121,6 +123,7 @@ public final class Npcs {
                 .title("Gate watch", "Garde de la porte")
                 .zone("grand_place").role(NpcRole.GUARD).level(15)
                 .entity(NPC_ENTITY).outfit(0x607D8B)
+                .attire(Attire.HELM)
                 .description("Old soldier. Points travellers towards the right street.",
                         "Vieux soldat. Indique aux voyageurs la bonne rue.")
                 .greeting(Dialogue.of(
@@ -201,6 +204,7 @@ public final class Npcs {
                 .title("Guardian of the Firefly Path", "Gardienne du Sentier des Lucioles")
                 .zone("sentier_lucioles").role(NpcRole.QUEST_GIVER).level(12)
                 .entity(NPC_ENTITY).outfit(0x5FBF63)
+                .attire(Attire.POINTED)
                 .description("Keeps the path clear of restless spirits.",
                         "Debarrasse le sentier des esprits agites.")
                 .greeting(Dialogue.of(
@@ -230,6 +234,7 @@ public final class Npcs {
                 .title("Herb gatherer", "Cueilleuse d'herbes")
                 .zone("sentier_lucioles").role(NpcRole.VILLAGER).level(8)
                 .entity(NPC_ENTITY).outfit(0x9CCC65)
+                .attire(Attire.NONE)
                 .description("Collects reagents along the path and trades stories.",
                         "Ramasse des reactifs le long du sentier et echange des histoires.")
                 .greeting(Dialogue.of(
@@ -246,6 +251,7 @@ public final class Npcs {
                 .title("House-sitting for the Fire professor", "Garde la maison de la professeure de feu")
                 .zone("allee_braises").role(NpcRole.QUEST_GIVER).level(14)
                 .entity(NPC_ENTITY).outfit(0xE4592B)
+                .attire(Attire.NONE)
                 .description("Watches the professor's house while the elves burn the street.",
                         "Surveille la maison de la professeure pendant que les elfes brulent la rue.")
                 .greeting(Dialogue.of(
@@ -271,6 +277,7 @@ public final class Npcs {
                 .title("City watch, Ember Alley post", "Garde de la cite, poste de l'Allee des Braises")
                 .zone("allee_braises").role(NpcRole.GUARD).level(16)
                 .entity(NPC_ENTITY).outfit(0x8D6E63)
+                .attire(Attire.HELM)
                 .description("Holds the barricade at the end of the alley.",
                         "Tient la barricade au bout de l'alley.")
                 .greeting(Dialogue.of(
@@ -291,6 +298,7 @@ public final class Npcs {
                 .title("Old fire, older anger", "Vieux feu, vieille colere")
                 .zone("allee_braises").role(NpcRole.VILLAGER).level(20)
                 .entity(NPC_ENTITY).outfit(0xFF7043)
+                .attire(Attire.HOOD)
                 .description("Speaks in short, hot sentences.",
                         "Parle par phrases courtes et brulantes.")
                 .greeting(Dialogue.of(
@@ -315,6 +323,7 @@ public final class Npcs {
                 .title("Harbour watch", "Garde du port")
                 .zone("avenue_marees").role(NpcRole.QUEST_GIVER).level(18)
                 .entity(NPC_ENTITY).outfit(0x4A6FA5)
+                .attire(Attire.HOOD)
                 .description("Lost his ship and most of his crew to the flood.",
                         "A perdu son navire et presque tout son equipage dans l'inondation.")
                 .greeting(Dialogue.of(
@@ -342,6 +351,7 @@ public final class Npcs {
                 .title("Still fishing", "Peche toujours")
                 .zone("avenue_marees").role(NpcRole.VILLAGER).level(10)
                 .entity(NPC_ENTITY).outfit(0x66BB6A)
+                .attire(Attire.STRAW)
                 .description("Refuses to leave the harbour, despite everything.",
                         "Refuse de quitter le port, malgre tout.")
                 .greeting(Dialogue.of(
@@ -363,6 +373,7 @@ public final class Npcs {
                 .title("Warden of the Colossus Road", "Gardienne du Chemin des Colosses")
                 .zone("chemin_colosses").role(NpcRole.QUEST_GIVER).level(25)
                 .entity(NPC_ENTITY).outfit(0x74C4E8)
+                .attire(Attire.HOOD)
                 .description("Keeps the statues asleep. It is not going well.",
                         "Garde les statues endormies. Cela se passe mal.")
                 .greeting(Dialogue.of(
@@ -389,6 +400,7 @@ public final class Npcs {
                 .title("Trapped in the hollow", "Prisonnier du creux")
                 .zone("grotte_hantee").role(NpcRole.QUEST_GIVER).level(16)
                 .entity(NPC_ENTITY).outfit(0xB0BEC5)
+                .attire(Attire.HOOD)
                 .description("Followed the Grand Necromancer into the dark. Regrets it.",
                         "A suivi le Grand Necromancien dans le noir. Le regrette.")
                 .greeting(Dialogue.of(

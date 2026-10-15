@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Apercu des apparences de personnages, sans lancer Minecraft.
+"""Apercu des personnages, sans lancer Minecraft.
 
-Le mod habille ses personnages (PNJ et professeurs) avec des peaux au format
-Minecraft habituel : 64 x 64 pixels, memes regions que les peaux de joueur. Ce
-script dessine ces peaux sur un modele humanoide et en fait une planche d'apercu,
-ce qui permet de verifier une apparence en quelques secondes.
+Le mod habille ses personnages avec des images au format Minecraft. Ce script
+dessine ces images sur un modele humanoide et en fait des planches d'apercu :
+c'est ce que le jeu affichera, aux memes regions de texture pres.
 
-    python3 tools/preview-skins.py                     # -> docs/skins.png (toutes)
-    python3 tools/preview-skins.py --check             # verifie le format des peaux
-    python3 tools/preview-skins.py --only pierre       # une seule apparence
+    python3 tools/preview-skins.py            # -> docs/skins.png, docs/skins-visages.png, docs/skins-tenues.png
+    python3 tools/preview-skins.py --check    # verifie le format des apparences
+    python3 tools/preview-skins.py --only lea # une seule apparence
 
-Le rendu utilise exactement les regions du modele de joueur de Minecraft : une
-peau dessinee ici s'affichera pareil dans le jeu, et une peau libre (celle d'un
-joueur, par exemple) peut etre previsualisee de la meme facon.
+Deux choses sont rendues :
+  * les personnages habilles de leur **peau** (visage, cheveux, tunique, bottes) ;
+  * la **tenue 3D**, dont le modele est relu dans le code Java
+    (`client/model/WizardRobeModel.java`) : chapeau, cape d'epaules, manches,
+    ceinture et jupe evasee. La texture de la tenue est en niveaux de gris, donc
+    elle est teintee a l'affichage, exactement comme en jeu.
 """
 import math
 import os
@@ -20,13 +22,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pixelart import blank, paste, put, read_png, rect, scale, write_png  # noqa: E402
+import character_skins  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 SKIN_DIR = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'arcanum_realms',
                         'textures', 'entity', 'npc')
 ROBE_DIR = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'arcanum_realms',
                         'textures', 'entity', 'wizard')
-OUT = os.path.join(ROOT, 'docs', 'skins.png')
 
 # --------------------------------------------------------------- le modele
 #
@@ -34,7 +36,6 @@ OUT = os.path.join(ROOT, 'docs', 'skins.png')
 # pieds a y = 0. Chaque boite a sa region dans la peau (texOffs), exactement
 # comme le modele humanoide standard de Minecraft.
 
-# nom, (x0, y0, z0, x1, y1, z1), region (u, v), taille (l, h, p)
 PARTS = [
     ('jambe droite', (-4, 0, -2, 0, 12, 2), (0, 16), (4, 12, 4)),
     ('jambe gauche', (0, 0, -2, 4, 12, 2), (16, 48), (4, 12, 4)),
@@ -44,7 +45,7 @@ PARTS = [
     ('tete', (-4, 24, -4, 4, 32, 4), (0, 0), (8, 8, 8)),
 ]
 
-# couches exterieures (chapeau, veste, manches, bas) : meme boite, 0,5 unite plus large
+# couches exterieures de la peau (chapeau et veste dessines dans la peau elle-meme)
 OVERLAYS = [
     ('bas droit', (-4, 0, -2, 0, 12, 2), (0, 32), (4, 12, 4)),
     ('bas gauche', (0, 0, -2, 4, 12, 2), (0, 48), (4, 12, 4)),
@@ -54,13 +55,21 @@ OVERLAYS = [
     ('chapeau', (-4, 24, -4, 4, 32, 4), (32, 0), (8, 8, 8)),
 ]
 
-# Les six faces d'une boite, dans l'ordre de la mise en page des peaux.
-# Une face est decrite par ses quatre coins (en 3D) et son rectangle dans la peau.
 FACE_ORDER = ('dessus', 'dessous', 'droite', 'avant', 'gauche', 'dos')
+
+# Deplacements des parties du modele de joueur, dans le repere de Minecraft (ou
+# l'axe vertical descend depuis les epaules, les pieds etant a y = 24). La tete
+# et le torse n'en ont pas ; les bras sont decales sur les cotes.
+PART_OFFSETS = {
+    'head': (0.0, 0.0, 0.0),
+    'body': (0.0, 0.0, 0.0),
+    'rightArm': (-5.0, 2.0, 0.0),
+    'leftArm': (5.0, 2.0, 0.0),
+}
 
 
 def face_regions(u, v, length, height, depth):
-    """Les six rectangles d'une boite dans la peau (mise en page de Minecraft)."""
+    """Les six rectangles d'une boite dans la texture (mise en page de Minecraft)."""
     return {
         'dessus': (u + depth, v, length, depth),
         'dessous': (u + depth + length, v, length, depth),
@@ -72,8 +81,7 @@ def face_regions(u, v, length, height, depth):
 
 
 def face_corners(box, face):
-    """Les quatre coins d'une face, dans l'ordre : haut-gauche, haut-droite,
-    bas-droite, bas-gauche (tels qu'on les voit en regardant la face)."""
+    """Les quatre coins d'une face, de haut-gauche a bas-gauche."""
     x0, y0, z0, x1, y1, z1 = box
     return {
         'dessus': ((x0, y1, z1), (x1, y1, z1), (x1, y1, z0), (x0, y1, z0)),
@@ -94,7 +102,7 @@ def face_normal(face):
 
 
 def project(point, yaw, pitch, scale_factor):
-    """Tourne le modele puis projette (orthographique) vers l'ecran."""
+    """Tourne le modele puis projette (orthographiquement) vers l'ecran."""
     x, y, z = point
     cy, sy = math.cos(yaw), math.sin(yaw)
     x2, z2 = x * cy + z * sy, -x * sy + z * cy
@@ -103,20 +111,20 @@ def project(point, yaw, pitch, scale_factor):
     return x2 * scale_factor, -y3 * scale_factor, z3
 
 
-def sample(skin, u, v):
-    height = len(skin)
-    width = len(skin[0])
+def sample(texture, u, v, tint=(1.0, 1.0, 1.0)):
+    height = len(texture)
+    width = len(texture[0])
     if u < 0 or v < 0 or u >= width or v >= height:
         return (0, 0, 0, 0)
-    return skin[v][u]
+    pixel = texture[v][u]
+    if pixel[3] == 0 or tint == (1.0, 1.0, 1.0):
+        return pixel
+    return (min(255, int(pixel[0] * tint[0])), min(255, int(pixel[1] * tint[1])),
+            min(255, int(pixel[2] * tint[2])), pixel[3])
 
 
-def fill_triangle(target, points, uvs, texture):
-    """Remplit un triangle en echantillonnant la texture (plus proche voisin).
-
-    Les coordonnees de texture sont interpolees par coordonnees barycentriques :
-    c'est ce qui evite les rayures diagonales dues a une face mal plaquee.
-    """
+def fill_triangle(target, points, uvs, texture, tint):
+    """Remplit un triangle en echantillonnant la texture (le plus proche voisin)."""
     (ax, ay), (bx, by), (cx, cy) = points
     area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
     if abs(area) < 1e-9:
@@ -130,7 +138,6 @@ def fill_triangle(target, points, uvs, texture):
         yy = py + 0.5
         for px in range(min_x, max_x + 1):
             xx = px + 0.5
-            # poids de B et C ; le point est interieur si les deux sont >= 0 et wA >= 0
             weight_b = ((xx - ax) * (cy - ay) - (cx - ax) * (yy - ay)) * inverse
             weight_c = ((bx - ax) * (yy - ay) - (xx - ax) * (by - ay)) * inverse
             weight_a = 1.0 - weight_b - weight_c
@@ -138,76 +145,254 @@ def fill_triangle(target, points, uvs, texture):
                 continue
             u = weight_a * uvs[0][0] + weight_b * uvs[1][0] + weight_c * uvs[2][0]
             v = weight_a * uvs[0][1] + weight_b * uvs[1][1] + weight_c * uvs[2][1]
-            colour = sample(texture, int(math.floor(u)), int(math.floor(v)))
+            colour = sample(texture, int(math.floor(u)), int(math.floor(v)), tint)
             if colour[3] > 0:
                 target[py][px] = colour
 
 
-def render(skin, yaw_degrees=28, pitch_degrees=16, pixels_per_unit=4.0, size=None,
-           parts=None, margin=6):
-    """Dessine la peau sur un personnage humanoide, vu de trois quarts avant.
+def render(pieces, yaw_degrees=28, pitch_degrees=16, pixels_per_unit=4.0, size=None,
+           margin=6, keep=None):
+    """Dessine une liste de pieces (personnage ou gros plan) vu de trois quarts avant.
 
-    `parts` permet de ne dessiner qu'une partie du personnage (la tete, par
+    `keep` permet de ne dessiner qu'une partie du personnage (la tete, par
     exemple) ; le contenu est alors centre dans l'image.
     """
     yaw = math.radians(yaw_degrees)
     pitch = math.radians(pitch_degrees)
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    cp, sp = math.cos(pitch), math.sin(pitch)
 
     faces = []
-    for boxes, overlay in ((PARTS, False), (OVERLAYS, True)):
-        for name, box, (u, v), dims in boxes:
-            if parts and name not in parts:
+    for piece in pieces:
+        if keep and piece['name'] not in keep:
+            continue
+        for face in FACE_ORDER:
+            normal = face_normal(face)
+            nx, nz = normal[0] * cy + normal[2] * sy, -normal[0] * sy + normal[2] * cy
+            ny, nz2 = normal[1] * cp - nz * sp, normal[1] * sp + nz * cp
+            if nz2 <= 0:
                 continue
-            length, height, depth = dims
-            regions = face_regions(u, v, length, height, depth)
-            grown = box
-            if overlay:
-                # les couches exterieures sont legerement plus larges que le corps
-                grown = (box[0] - 0.5, box[1] - 0.5, box[2] - 0.5, box[3] + 0.5, box[4] + 0.5, box[5] + 0.5)
-            for face in FACE_ORDER:
-                normal = face_normal(face)
-                corners = face_corners(grown, face)
-                # faces cachees : on ne dessine que celles tournees vers la camera
-                cy, sy = math.cos(yaw), math.sin(yaw)
-                nx, nz = normal[0] * cy + normal[2] * sy, -normal[0] * sy + normal[2] * cy
-                cp, sp = math.cos(pitch), math.sin(pitch)
-                ny, nz2 = normal[1] * cp - nz * sp, normal[1] * sp + nz * cp
-                if nz2 <= 0:
-                    continue
-                projected = [project(c, yaw, pitch, pixels_per_unit) for c in corners]
-                depth_average = sum(p[2] for p in projected) / 4.0
-                ru, rv, rw, rh = regions[face]
-                uvs = ((ru, rv), (ru + rw, rv), (ru + rw, rv + rh), (ru, rv + rh))
-                faces.append((depth_average, projected, uvs, skin, overlay, name))
-
-    faces.sort(key=lambda entry: entry[0])
-
+            corners = face_corners(piece['box'], face)
+            projected = [project(c, yaw, pitch, pixels_per_unit) for c in corners]
+            depth = sum(p[2] for p in projected) / 4.0
+            faces.append((depth, projected, piece['regions'][face], piece['texture'],
+                          piece['tint']))
     if not faces:
         return blank(8, 8)
+    faces.sort(key=lambda entry: entry[0])
 
-    # cadre du contenu : on centre le personnage (ou la partie demandee)
-    xs = [p[0] for _d, projected, _u, _s, _o, _n in faces for p in projected]
-    ys = [p[1] for _d, projected, _u, _s, _o, _n in faces for p in projected]
+    xs = [p[0] for _d, projected, _r, _t, _c in faces for p in projected]
+    ys = [p[1] for _d, projected, _r, _t, _c in faces for p in projected]
     width = (max(xs) - min(xs)) + 2 * margin
     height = (max(ys) - min(ys)) + 2 * margin
-    # l'image doit toujours contenir le personnage : sinon les pieds ou le chapeau
-    # seraient coupes
     size = int(max(width, height, size or 0))
     canvas = blank(size, size)
     origin_x = size / 2.0 - (min(xs) + max(xs)) / 2.0
     origin_y = size / 2.0 - (min(ys) + max(ys)) / 2.0
-    for _depth, projected, uvs, texture, _overlay, _name in faces:
+
+    for _depth, projected, (ru, rv, rw, rh), texture, tint in faces:
         points = [(origin_x + px, origin_y + py) for px, py, _z in projected]
-        uv_points = [(uvs[0][0], uvs[0][1]), (uvs[1][0], uvs[1][1]),
-                     (uvs[2][0], uvs[2][1]), (uvs[3][0], uvs[3][1])]
+        uvs = ((ru, rv), (ru + rw, rv), (ru + rw, rv + rh), (ru, rv + rh))
         fill_triangle(canvas, (points[0], points[1], points[2]),
-                      (uv_points[0], uv_points[1], uv_points[2]), texture)
+                      (uvs[0], uvs[1], uvs[2]), texture, tint)
         fill_triangle(canvas, (points[0], points[2], points[3]),
-                      (uv_points[0], uv_points[2], uv_points[3]), texture)
+                      (uvs[0], uvs[2], uvs[3]), texture, tint)
     return canvas
 
 
-# --------------------------------------------------- verification et planche
+# ------------------------------------------------------- pieces a dessiner
+
+
+def skin_pieces(skin):
+    """Les pieces du personnage telles qu'elles sont dessinees dans sa peau."""
+    pieces = []
+    for boxes in (PARTS, OVERLAYS):
+        for name, box, (u, v), dims in boxes:
+            regions = face_regions(u, v, *dims)
+            pieces.append({'name': name, 'box': box, 'regions': regions,
+                           'texture': skin, 'tint': (1.0, 1.0, 1.0)})
+    return pieces
+
+
+def robe_pieces(texture, colour, attire, java_pieces=None):
+    """La tenue 3D, teintee, avec la seule coiffe demandee.
+
+    Le modele est relu dans le code Java ; seules les pieces de la coiffe portee
+    sont dessinees, comme le fait la couche de rendu du mod.
+    """
+    java_pieces = java_pieces if java_pieces is not None else character_skins.read_robe_model()
+    tint = tuple(channel / 255.0 for channel in colour[:3])
+    pieces = []
+    for piece in java_pieces:
+        if not hat_visible(piece['name'], attire):
+            continue
+        # repere du modele Java (l'axe vertical descend) vers le repere de l'apercu
+        # (pieds a y = 0, comme dans PARTS)
+        ox, oy, oz = PART_OFFSETS[piece['part']]
+        x0, y0, z0, x1, y1, z1 = piece['box']
+        box = (x0 + ox, 24 - (y1 + oy), z0 + oz, x1 + ox, 24 - (y0 + oy), z1 + oz)
+        width, height, depth = (int(round(v)) for v in piece['size'])
+        regions = face_regions(piece['u'], piece['v'], width, height, depth)
+        pieces.append({'name': piece['name'], 'box': box, 'regions': regions,
+                       'texture': texture, 'tint': tint})
+    return pieces
+
+
+# Quelles pieces appartiennent a quelle coiffe. Miroir de WizardRobeLayer.showHat
+# cote mod : une seule coiffe est portee a la fois.
+HATS = {
+    'POINTED': ('hat_brim', 'hat_cone_1', 'hat_cone_2', 'hat_cone_3', 'hat_tip'),
+    'HOOD': ('hood_back', 'hood_cowl'),
+    'HELM': ('helm_cap', 'helm_nose', 'helm_cheek', 'helm_cheek_2'),
+    'CAP': ('cap_crown', 'cap_brim'),
+    'STRAW': ('straw_crown', 'straw_brim'),
+}
+# Toutes les pieces qui appartiennent a une coiffe : les autres sont portees en
+# permanence (torse, col, cape, ceinture, jupe, manches).
+HAT_PIECES = {name for pieces in HATS.values() for name in pieces}
+# la cape d'epaules est remplacee par le col de la capuche
+REPLACED_BY_HOOD = ('mantle', 'mantle_trim')
+
+
+def hat_visible(piece_name, attire):
+    """Vrai si cette piece du modele doit etre dessinee pour cette coiffe."""
+    if piece_name in HAT_PIECES:
+        for name, pieces in HATS.items():
+            if piece_name in pieces:
+                return name == attire
+        return False
+    if attire == 'HOOD' and piece_name in REPLACED_BY_HOOD:
+        return False
+    return True
+
+
+# ------------------------------------------------------------- planches
+
+
+DIGITS = {
+    '0': ('111', '101', '101', '101', '111'), '1': ('010', '110', '010', '010', '111'),
+    '2': ('111', '001', '111', '100', '111'), '3': ('111', '001', '111', '001', '111'),
+    '4': ('101', '101', '111', '001', '001'), '5': ('111', '100', '111', '001', '111'),
+    '6': ('111', '100', '111', '101', '111'), '7': ('111', '001', '010', '010', '010'),
+    '8': ('111', '101', '111', '101', '111'), '9': ('111', '101', '111', '001', '111'),
+}
+
+
+def draw_number(img, x, y, number):
+    for digit in str(number):
+        for row, line in enumerate(DIGITS[digit]):
+            for column, pixel in enumerate(line):
+                if pixel == '1':
+                    put(img, x + column, y + row, (255, 255, 255, 255))
+        x += 4
+
+
+def attire_of(npc_id):
+    """La coiffe d'un PNJ, lue dans le catalogue du moteur."""
+    for entry in character_skins.npc_table():
+        if entry['id'] == npc_id:
+            return entry['attire']
+    return 'NONE'
+
+
+def colour_of(npc_id):
+    for entry in character_skins.npc_table():
+        if entry['id'] == npc_id:
+            return entry['outfit']
+    return (0x9B, 0x59, 0xB6)
+
+
+def dressed(skin, robe_texture, colour, attire):
+    """Un personnage complet : sa peau, puis sa tenue 3D par-dessus."""
+    java_pieces = character_skins.read_robe_model()
+    return skin_pieces(skin) + robe_pieces(robe_texture, colour, attire, java_pieces)
+
+
+def npc_character(name):
+    """Le personnage habille d'un PNJ, pret a dessiner."""
+    skin = read_png(os.path.join(SKIN_DIR, name + '.png'))
+    robe = read_png(os.path.join(ROBE_DIR, 'robe.png'))
+    return dressed(skin, robe, colour_of(name), attire_of(name))
+
+
+def planche(names, columns=5, pixels_per_unit=6.0):
+    """Les PNJ habilles, vus de face et de trois quarts."""
+    view = int(40 * pixels_per_unit)
+    cell_w = view * 2 + 8
+    cell_h = view + 16
+    rows = (len(names) + columns - 1) // columns
+    sheet = blank(columns * cell_w, rows * cell_h)
+    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
+    for index, name in enumerate(names):
+        pieces = npc_character(name)
+        front = render(pieces, yaw_degrees=0, pitch_degrees=6, pixels_per_unit=pixels_per_unit,
+                       size=view)
+        side = render(pieces, yaw_degrees=34, pitch_degrees=14, pixels_per_unit=pixels_per_unit,
+                      size=view)
+        base_x = (index % columns) * cell_w
+        base_y = (index // columns) * cell_h
+        paste(sheet, front, base_x + 4, base_y + 4)
+        paste(sheet, side, base_x + view + 4, base_y + 4)
+        draw_number(sheet, base_x + 6, base_y + cell_h - 9, index + 1)
+    return sheet
+
+
+def planche_visages(names, columns=7, pixels_per_unit=14.0):
+    """Gros plan sur chaque visage : avant et profil."""
+    size = int(14 * pixels_per_unit)
+    cell_w = size * 2 + 6
+    cell_h = size + 12
+    rows = (len(names) + columns - 1) // columns
+    sheet = blank(columns * cell_w, rows * cell_h)
+    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
+    for index, name in enumerate(names):
+        pieces = npc_character(name)
+        front = render(pieces, yaw_degrees=0, pitch_degrees=0, pixels_per_unit=pixels_per_unit,
+                       size=size, keep=('tete',))
+        side = render(pieces, yaw_degrees=52, pitch_degrees=6, pixels_per_unit=pixels_per_unit,
+                      size=size, keep=('tete',))
+        base_x = (index % columns) * cell_w
+        base_y = (index // columns) * cell_h
+        paste(sheet, front, base_x + 3, base_y + 3)
+        paste(sheet, side, base_x + size + 3, base_y + 3)
+        draw_number(sheet, base_x + 5, base_y + cell_h - 9, index + 1)
+    return sheet
+
+
+SCHOOLS = (('pyromancy', 0xE4592B), ('tempest', 0x7A55D6), ('frost', 0x74C4E8),
+           ('runomancy', 0xD9A93C), ('sylvan', 0x5FBF63), ('necromancy', 0x6B7280),
+           ('equilibrium', 0xD7C08D))
+
+
+def planche_tenues(pixels_per_unit=6.0):
+    """La tenue 3D des joueurs, une par ecole (la robe est teintee par l'ecole)."""
+    base = character_skins.player_skin()
+    robe = read_png(os.path.join(ROBE_DIR, 'robe.png'))
+    java_pieces = character_skins.read_robe_model()
+
+    entries = [(name, (rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff)) for name, rgb in SCHOOLS]
+    entries.append(('sans ecole', (0x6C, 0x74, 0x88)))
+
+    view = int(40 * pixels_per_unit)
+    columns = 4
+    cell_w = view + 8
+    cell_h = view + 16
+    rows = (len(entries) + columns - 1) // columns
+    sheet = blank(columns * cell_w, rows * cell_h)
+    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
+    for index, (name, colour) in enumerate(entries):
+        attire = 'NONE' if name == 'sans ecole' else 'POINTED'
+        pieces = skin_pieces(base) + robe_pieces(robe, colour, attire, java_pieces)
+        view_render = render(pieces, yaw_degrees=26, pitch_degrees=12,
+                             pixels_per_unit=pixels_per_unit, size=view)
+        base_x = (index % columns) * cell_w
+        base_y = (index // columns) * cell_h
+        paste(sheet, view_render, base_x + 4, base_y + 4)
+        draw_number(sheet, base_x + 6, base_y + cell_h - 9, index + 1)
+    return sheet, [name for name, _colour in entries]
+
+
+# ----------------------------------------------------- verification
 
 
 def legal_pixels():
@@ -235,11 +420,8 @@ def check_skin(path):
         return name, problems
 
     inside = legal_pixels()
-    strays = 0
-    for y in range(64):
-        for x in range(64):
-            if skin[y][x][3] > 0 and not inside[y][x]:
-                strays += 1
+    strays = sum(1 for y in range(64) for x in range(64)
+                 if skin[y][x][3] > 0 and not inside[y][x])
     if strays:
         problems.append(f'{strays} pixel(s) hors des regions du modele')
 
@@ -256,122 +438,56 @@ def check_skin(path):
     def visible(x, y):
         return skin[y][x] if skin[y][x][3] > 0 else skin[y][x - 32]
 
-    # les yeux sont sur la rangee 4 du visage (y = 12) : trois couleurs au moins
-    # (peau, blanc de l'oeil, iris) signifient qu'on voit le regard
     eye_colours = {visible(40 + x, 8 + 4) for x in range(8)}
     if len(eye_colours) < 3:
-        problems.append(f'les yeux ne sont pas visibles ({len(eye_colours)} couleur(s) sur la rangee des yeux)')
+        problems.append(f'les yeux ne sont pas visibles ({len(eye_colours)} couleur(s))')
 
-    # le visage entier doit rester lisible : au moins cinq couleurs visibles
     face_colours = {visible(40 + x, 8 + y) for y in range(8) for x in range(8)}
     if len(face_colours) < 5:
-        problems.append(f'le visage manque de details ({len(face_colours)} couleurs visibles)')
+        problems.append(f'le visage manque de details ({len(face_colours)} couleurs)')
 
-    # quelqu'un doit coiffer le personnage : cheveux ou coiffe sur le haut du crane
     top_colours = {visible(40 + x, 8 + y) for y in range(4) for x in range(8)}
-    head_top = {skin[0 + y][8 + x] for y in range(4) for x in range(8)}
+    head_top = {skin[y][8 + x] for y in range(4) for x in range(8)}
     if len(top_colours) < 2 and len(head_top) < 2:
-        problems.append('rien ne couvre le haut du crane (ni cheveux ni coiffe)')
-
+        problems.append('rien ne couvre le haut du crane')
     return name, problems
 
 
-def planche(names, columns=5, pixels_per_unit=4.0):
-    """Assemble les personnages en une planche avec, pour chacun, deux vues."""
-    view = int(40 * pixels_per_unit)
-    cell_w = view * 2 + 8
-    cell_h = view + 14
-    rows = (len(names) + columns - 1) // columns
-    sheet = blank(columns * cell_w, rows * cell_h)
-    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
-    for index, name in enumerate(names):
-        skin = read_png(os.path.join(SKIN_DIR, name + '.png'))
-        front = render(skin, yaw_degrees=0, pitch_degrees=8, pixels_per_unit=pixels_per_unit,
-                       size=int(40 * pixels_per_unit))
-        three_quarter = render(skin, yaw_degrees=32, pitch_degrees=16,
-                               pixels_per_unit=pixels_per_unit, size=int(40 * pixels_per_unit))
-        column = index % columns
-        row = index // columns
-        base_x = column * cell_w
-        base_y = row * cell_h
-        paste(sheet, front, base_x + 4, base_y + 4)
-        paste(sheet, three_quarter, base_x + view + 4, base_y + 4)
-        draw_number(sheet, base_x + 6, base_y + cell_h - 9, index + 1)
-    return sheet
+def check_robe(path):
+    """Verifie la texture de la tenue 3D : chaque piece doit avoir sa place peinte."""
+    name = os.path.basename(path)
+    texture = read_png(path)
+    problems = []
+    height = len(texture)
+    width = len(texture[0])
+    pieces = character_skins.read_robe_model()
+    for piece in pieces:
+        u, v = piece['u'], piece['v']
+        box_w, box_h, box_d = (int(round(value)) for value in piece['size'])
+        regions = face_regions(u, v, box_w, box_h, box_d)
+        for face, (rx, ry, rw, rh) in regions.items():
+            if rx < 0 or ry < 0 or rx + rw > width or ry + rh > height:
+                problems.append(f'{piece["name"]} ({face}) sort de l\'image')
+                continue
+            holes = sum(1 for y in range(ry, ry + rh) for x in range(rx, rx + rw)
+                        if texture[y][x][3] == 0)
+            if holes:
+                problems.append(f'{piece["name"]} ({face}) : {holes} case(s) vide(s)')
+
+    # la teinte en jeu multiplie la texture : elle doit rester claire pour que la
+    # couleur de l'ecole ressorte
+    values = [texture[y][x][0] for y in range(0, 128, 3) for x in range(0, 128, 3)
+              if texture[y][x][3] > 0]
+    if values:
+        average = sum(values) / len(values)
+        if average < 140:
+            problems.append(f'texture trop sombre pour etre teintee (moyenne {average:.0f}/255)')
+    if values and max(values) - min(values) < 20:
+        problems.append('texture trop uniforme : les faces ne se distinguent pas')
+    return name, problems
 
 
-DIGITS = {
-    '0': ('111', '101', '101', '101', '111'), '1': ('010', '110', '010', '010', '111'),
-    '2': ('111', '001', '111', '100', '111'), '3': ('111', '001', '111', '001', '111'),
-    '4': ('101', '101', '111', '001', '001'), '5': ('111', '100', '111', '001', '111'),
-    '6': ('111', '100', '111', '101', '111'), '7': ('111', '001', '010', '010', '010'),
-    '8': ('111', '101', '111', '101', '111'), '9': ('111', '101', '111', '001', '111'),
-}
-
-
-def draw_number(img, x, y, number):
-    for digit in str(number):
-        pattern = DIGITS[digit]
-        for row, line in enumerate(pattern):
-            for column, pixel in enumerate(line):
-                if pixel == '1':
-                    put(img, x + column, y + row, (255, 255, 255, 255))
-        x += 4
-
-
-def planche_robes(names, columns=4, pixels_per_unit=5.0):
-    """Les robes de sorcier posees sur une peau de joueur, comme en jeu.
-
-    La robe est une couche exterieure : elle habille un personnage dont
-    l'apparence reste celle du joueur. L'apercu utilise une peau neutre pour
-    montrer ce que la couche ajoute.
-    """
-    # base : une apparence de joueur simple, pour voir exactement ce que la robe ajoute
-    base_path = os.path.join(ROOT, 'build', 'player-base.png')
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        'character_skins', os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                        'character_skins.py'))
-    skins = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(skins)
-    write_png(base_path, skins.player_skin(), 64, 64)
-    joueur = read_png(base_path)
-    cell = int(44 * pixels_per_unit)
-    rows = (len(names) + columns - 1) // columns
-    sheet = blank(columns * cell, rows * cell)
-    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
-    for index, name in enumerate(names):
-        robe = read_png(os.path.join(ROBE_DIR, name + '.png'))
-        # on superpose : la couche exterieure de la robe par-dessus celle du personnage
-        habille = joueur.copy()
-        paste(habille, robe, 0, 0)
-        view = render(habille, yaw_degrees=24, pitch_degrees=12, pixels_per_unit=pixels_per_unit,
-                      size=cell - 6)
-        paste(sheet, view, (index % columns) * cell + 3, (index // columns) * cell + 3)
-        draw_number(sheet, (index % columns) * cell + 5, (index // columns) * cell + 8, index + 1)
-    return sheet
-
-
-def planche_visages(names, columns=7, pixels_per_unit=10.0):
-    """Gros plan sur chaque visage : avant et profil."""
-    size = int(14 * pixels_per_unit)
-    cell_w = size * 2 + 6
-    cell_h = size + 12
-    rows = (len(names) + columns - 1) // columns
-    sheet = blank(columns * cell_w, rows * cell_h)
-    rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
-    for index, name in enumerate(names):
-        skin = read_png(os.path.join(SKIN_DIR, name + '.png'))
-        front = render(skin, yaw_degrees=0, pitch_degrees=0, pixels_per_unit=pixels_per_unit,
-                       size=size, parts=('tete',))
-        side = render(skin, yaw_degrees=52, pitch_degrees=6, pixels_per_unit=pixels_per_unit,
-                      size=size, parts=('tete',))
-        base_x = (index % columns) * cell_w
-        base_y = (index // columns) * cell_h
-        paste(sheet, front, base_x + 3, base_y + 3)
-        paste(sheet, side, base_x + size + 3, base_y + 3)
-        draw_number(sheet, base_x + 5, base_y + cell_h - 9, index + 1)
-    return sheet
+# ------------------------------------------------------------------ main
 
 
 def names_in(only=None):
@@ -386,7 +502,7 @@ def main():
     only = args[args.index('--only') + 1] if '--only' in args else None
     names = names_in(only)
     if not names:
-        sys.exit('aucune peau trouvee dans ' + SKIN_DIR)
+        sys.exit('aucune apparence trouvee dans ' + SKIN_DIR)
 
     if '--check' in args:
         failures = 0
@@ -399,25 +515,32 @@ def main():
                     print(f'         - {problem}')
             else:
                 print(f'  [OK]   {label}')
-        print(f'{len(names) - failures}/{len(names)} apparences conformes.')
+        robe_label, robe_problems = check_robe(os.path.join(ROBE_DIR, 'robe.png'))
+        if robe_problems:
+            failures += 1
+            print(f'  [KO]   tenue 3D : {robe_label}')
+            for problem in robe_problems:
+                print(f'         - {problem}')
+        else:
+            print(f'  [OK]   tenue 3D : {robe_label}')
+        total = len(names) + 1
+        print(f'{total - failures}/{total} elements conformes.')
         sys.exit(1 if failures else 0)
 
-    sheet = scale(planche(names, columns=5, pixels_per_unit=6.0), 2)
-    write_png(OUT, sheet)
-    faces = scale(planche_visages(names, columns=7, pixels_per_unit=14.0), 2)
-    faces_out = os.path.join(ROOT, 'docs', 'skins-visages.png')
-    write_png(faces_out, faces)
+    write_png(os.path.join(ROOT, 'docs', 'skins.png'),
+              scale(planche(names, columns=5, pixels_per_unit=6.0), 2))
+    write_png(os.path.join(ROOT, 'docs', 'skins-visages.png'),
+              scale(planche_visages(names, columns=7, pixels_per_unit=14.0), 2))
+    tenues, labels = planche_tenues(pixels_per_unit=6.0)
+    write_png(os.path.join(ROOT, 'docs', 'skins-tenues.png'), scale(tenues, 2))
 
-    robes = sorted(f[:-4] for f in os.listdir(ROBE_DIR) if f.endswith('.png'))
-    robes_out = os.path.join(ROOT, 'docs', 'skins-robes.png')
-    write_png(robes_out, scale(planche_robes(robes, columns=4, pixels_per_unit=5.0), 2))
-
-    print(f'{len(names)} apparences rendues :')
-    print(f'  {os.path.relpath(OUT, ROOT)} (personnages entiers)')
-    print(f'  {os.path.relpath(faces_out, ROOT)} (visages en gros plan)')
-    print(f'  {os.path.relpath(robes_out, ROOT)} (robes des joueurs, {len(robes)})')
+    print(f'{len(names)} personnages rendus :')
+    print('  docs/skins.png (personnages entiers)')
+    print('  docs/skins-visages.png (visages en gros plan)')
+    print('  docs/skins-tenues.png (tenues 3D des joueurs, une par ecole)')
     for index, name in enumerate(names):
         print(f'  {index + 1:2d}. {name}')
+    print('  tenues : ' + ', '.join(labels))
 
 
 if __name__ == '__main__':
