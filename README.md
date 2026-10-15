@@ -54,8 +54,32 @@ originaux, mais les **mecaniques et les nombres** reproduisent fideles ceux du j
   pips en losanges, barre de vie des adversaires.
 - **Grimoire** : liste des sorts appris, construction du deck, enregistrement cote serveur.
 
-Les etapes 2 (monde, quetes, PNJ, dialogue) et 3 (familiers, jardinage, peche, PvP) sont
-planifiees : voir la [feuille de route](#feuille-de-route).
+**Etape 2 - le monde** (livree ici) :
+
+- **7 zones** de la Cite des Arcanes, ouvertes par la progression : la Grand-Place, le Bosquet
+  des Sept (une clairiere par ecole), le Sentier des Lucioles, l'Allee des Braises, l'Avenue des
+  Marees, le Chemin des Colosses et le donjon de la Grotte Hantee.
+- **35 creatures** reprises des fiches de la wiki Wizard101 Central : rang, points de vie,
+  pips de depart, resistances et faiblesses par ecole, classe (Esprit, Mort-vivant, Fee, Elfe...),
+  etourdissable, envoutable, liste de sorts et table de butin.
+- **19 PNJ** : directeur, sept professeurs d'ecole, gardes, marchand, villageois et esprits,
+  chacun avec ses repliques d'accueil, d'attente, de remise de quete et d'adieu, en francais et
+  en anglais.
+- **50 quetes** : une chaine principale de 36 quetes (l'Allee des Braises suit ses **douze
+  etapes scenarisees** d'origine), des quetes annexes et les sept epreuves d'ecole, avec des
+  objectifs *vaincre / recolter / parler / se rendre a*.
+- **Journal de quetes** persistant, progression partagee dans un rayon de 40 blocs, recompenses
+  en XP, or, sorts, equipement et choix de recompense.
+- **Equipement** : 47 pieces en 5 paliers et 8 emplacements (chapeau, robe, bottes, baguette,
+  athame, anneau, amulette, deck) avec PV, pips de puissance, critique, blocage, precision,
+  percee, resists et bonus de degats ; portees a la souris, statistiques appliquees en duel.
+- **Butin** : 10 tables (par rang de creature et par boss) avec or et objets.
+- **Boutique** : le marchand vend le palier correspondant au niveau du joueur.
+- **Integration au monde** : discussion avec un PNJ, ramassage d'objets, mort de creature et entree dans une
+  zone font progresser les quetes, et une zone se pose dans le monde avec `/arcanum zones set`.
+
+L'etape 3 (familiers, jardinage, peche, PvP) est planifiee : voir la
+[feuille de route](#feuille-de-route).
 
 ---
 
@@ -88,6 +112,13 @@ Aucune dependance supplementaire n'est necessaire.
 6. **Construisez un Cercle Arcanique** (8 pierres taillees + 1 amethyste) pour faire apparaitre
    une rencontre complete a l'endroit de votre choix - pratique pour les duels de groupe.
 
+7. **Posez le monde** : placez-vous a l'endroit qui doit devenir la Grand-Place et tapez
+   `/arcanum zones set grand_place`, puis `/arcanum pnj ici` pour y installer le directeur, le
+   marchand et le garde. Repetez pour les autres zones (`/arcanum zones` liste ce qui manque).
+8. **Suivez les quetes** : parlez au directeur (clic droit sur le PNJ). Les objectifs se
+   valident en jouant normalement : tuer des creatures, ramasser les reagents, parler aux PNJ et
+   entrer dans les zones. `/arcanum quetes` affiche le journal.
+
 Astuce de test : `/arcanum level 50` pour debloquer presque tous les sorts et
 `/arcanum resolve` pour resoudre le round immediatement. Pensez aussi a baisser
 `planning_seconds` dans la config si vous jouez seul.
@@ -115,6 +146,17 @@ Toutes les commandes sont accessibles a tous les joueurs (usage entre amis).
 | `/arcanum deck <reset\|info>` | Reinitialise ou affiche le deck |
 | `/arcanum spells [ecole]` | Liste les sorts (nom, pips, precision, niveau) |
 | `/arcanum creatures` | Liste les creatures (niveau, PV, ecole) |
+| `/arcanum creatures sauvages [id]` | Fait apparaitre les creatures de la zone |
+| `/arcanum zones` | Liste les zones, leur plage de niveaux et leur quete d'ouverture |
+| `/arcanum zones set <zone> [rayon]` | Pose (ou deplace) une zone ici, rayon en blocs |
+| `/arcanum zones del <zone>` | Retire l'ancre d'une zone |
+| `/arcanum pnj` | Liste les PNJ, leur zone et les quetes qu'ils donnent |
+| `/arcanum pnj <id>` | Fait apparaitre ce PNJ a votre position |
+| `/arcanum pnj ici` | Fait apparaitre en cercle tous les PNJ de la zone |
+| `/arcanum quetes [id]` | Journal de quetes, ou detail d'une quete |
+| `/arcanum quete <accepter\|abandonner\|remettre> <id>` | Agit sur une quete |
+| `/arcanum or <montant>` | Ajoute (ou retire) de l'or |
+| `/arcanum equipement [id\|palier <0-4>\|retirer <slot>]` | Donne ou retire de l'equipement |
 
 ---
 
@@ -145,6 +187,8 @@ courbe d'XP et rencontres du Cercle Arcanique. Le detail de chaque cle est dans
   calcul des degats, fizzle, critiques, etats, IA, XP, reglages).
 - [docs/spells.md](docs/spells.md) : catalogue complet des 112 sorts et des 15 creatures,
   **genere automatiquement** depuis le moteur de jeu.
+- [docs/world.md](docs/world.md) : contenu du monde — zones, bestiaire avec resistances et
+  butin, PNJ, chaine de quetes, equipement et tables de butin, **genere automatiquement**.
 
 ---
 
@@ -174,7 +218,8 @@ se compile et se teste en quelques secondes, sans lancer le jeu.
 ```bash
 python3 tools/generate-resources.py              # modeles, textures, recettes, butin
 python3 tools/generate-lang.py /chemin/jdk17     # fichiers de langue a partir du moteur
-python3 tools/generate-docs.py /chemin/jdk17     # docs/spells.md
+python3 tools/generate-docs.py /chemin/jdk17       # docs/spells.md
+python3 tools/generate-world-docs.py /chemin/jdk17 # docs/world.md
 ```
 
 ---
@@ -191,14 +236,19 @@ src/main/java/com/arcanumrealms/
     battle/      Combatant, Battle, pips, evenements, configuration
     ai/          intelligence des creatures
     minion/      creatures et serviteurs
-  network/       paquets Forge (etat du duel, actions du joueur, fiche du sorcier)
+    world/       zones, bestiaire, PNJ, quetes, journal, equipement, butin
+  network/       paquets Forge (duel, quetes, dialogues, fiche du sorcier)
   command/       commandes /arcanum
-  client/        interface de duel, grimoire, HUD, touches
-  item/ block/   baguette et cercle arcanique
-  player/        fiche du sorcier persistante (NBT)
+  client/        interface de duel, grimoire, journal de quetes, dialogue, HUD, touches
+  entity/        entite PNJ (wizard_npc) et son rendu
+  server/        services serveur : quetes, dialogues, apparition des creatures,
+                 evenements du monde (progression en jeu)
+  world/         ZoneMap : position des zones dans le monde (donnee sauvegardee)
+  item/ block/   baguette, cercle arcanique et objet d'equipement
+  player/        fiche du sorcier persistante (NBT : niveau, or, quetes, equipement)
   battle/        ServerBattleManager : orchestration des duels cote serveur
 src/main/resources/   mods.toml, traductions, modeles, textures, recettes
-src/test/java/        27 tests du moteur
+src/test/java/        52 tests du moteur
 ```
 
 Le moteur ne connait pas Minecraft : le serveur lui parle par l'interface `BattleHost`
@@ -212,7 +262,7 @@ evite toute desynchronisation.
 | Etape | Contenu | Etat |
 | --- | --- | --- |
 | 1 | Combat complet : ecoles, sorts, deck, pips, duels, IA, XP, interface | **livree** |
-| 2 | Monde : zones de quete, PNJ et dialogues, quetes de type "vaincs X creatures", recompenses, equipement a statistiques | a venir |
+| 2 | Monde : 7 zones, 35 creatures, 19 PNJ, 50 quetes, dialogues, journal, equipement, butin | **livree** |
 | 3 | Familiers, jardinage, peche, duels entre joueurs (PvP) | a venir |
 
 ---

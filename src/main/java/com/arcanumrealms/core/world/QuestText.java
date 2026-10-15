@@ -31,7 +31,7 @@ public final class QuestText {
         }
         if (goal instanceof QuestGoal.Visit v) {
             String name = Zones.find(v.zoneId()).map(z -> z.name(french)).orElse(v.zoneId());
-            return (french ? "Se rendre a " : "Visit ") + name;
+            return french ? "Se rendre " + aZone(name) : "Visit " + name;
         }
         return goal.describe(french);
     }
@@ -56,6 +56,18 @@ public final class QuestText {
             words[words.length - 1] = pluralWord(words[words.length - 1], false);
         }
         return String.join(" ", words);
+    }
+
+    /**
+     * Contraction de "a" avec l'article du nom de zone : "a Le Sentier" devient
+     * "au Sentier", "a Les Marees" devient "aux Marees", etc.
+     */
+    static String aZone(String name) {
+        if (name.startsWith("Le ")) return "au " + name.substring(3);
+        if (name.startsWith("Les ")) return "aux " + name.substring(4);
+        if (name.startsWith("La ")) return "a la " + name.substring(3);
+        if (name.startsWith("L'")) return "a l'" + name.substring(2);
+        return "a " + name;
     }
 
     private static boolean isPreposition(String word) {

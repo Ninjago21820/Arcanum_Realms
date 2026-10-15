@@ -74,7 +74,7 @@ public final class Zones {
                         "thorn_sprite", "scarab_swarm"),
                 List.of("lea_nightchant", "melisande_whitehorn"),
                 List.of("first_steps", "unwelcome_spirits", "bones_and_badges", "pixie_problem",
-                        "sprite_trouble", "scarabs_in_the_grass"),
+                        "sprite_trouble", "scarabs_in_the_grass", "ticklin_da_bones", "nightmare_time"),
                 false, null, 1));
 
         add(new ZoneDef("allee_braises",
@@ -86,8 +86,10 @@ public final class Zones {
                         "skeletal_warrior", "gretta_darkkettle", "wormguts", "melweena_smite",
                         "bastilla_gravewynd", "alicane_swiftarrow"),
                 List.of("hanna_emberwright", "private_quinn", "volcano_spirit"),
-                List.of("report_to_hanna", "burning_books", "the_pathfinders", "magma_rising",
-                        "quinns_orders", "gravewynds_bastion", "swiftarrow_ambush", "the_spirit_speaks"),
+                List.of("report_to_hanna", "she_ran_crying_wildfire", "investigate_alley", "point_taken",
+                        "danger_danger", "dire_news", "the_cure", "administer_cure", "which_craft",
+                        "which_hunt", "not_that_witch", "the_embercat", "swiftarrow_ambush",
+                        "cold_hard_steel", "magma_mania", "oil_rush", "gotta_see_gretta"),
                 false, "report_to_hanna", 5));
 
         add(new ZoneDef("avenue_marees",
@@ -111,7 +113,7 @@ public final class Zones {
                 List.of("ice_troll", "marauder_imp", "colossus_sentinel", "night_shade", "rune_marauder"),
                 List.of("warden_ashwind"),
                 List.of("road_of_colossi", "cold_shoulders", "sentinels_stone", "shades_of_night",
-                        "ashes_of_the_road"),
+                        "ashes_of_the_road", "frost_knight_fight"),
                 false, "the_harvest_lord_quest", 15));
 
         add(new ZoneDef("grotte_hantee",

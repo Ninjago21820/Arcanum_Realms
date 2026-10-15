@@ -879,21 +879,23 @@ public final class CoreTests {
 
         test("quetes : la progression des objectifs suit les evenements du jeu", () -> {
             QuestLog log = new QuestLog();
-            QuestDef quest = Quests.get("burning_books");
-            check(log.canStart(quest.id(), 99) == false, "Livres Brulants suit Rapport a Hanna");
+            QuestDef quest = Quests.get("she_ran_crying_wildfire");
+            check(!log.canStart(quest.id(), 99), "la premiere quete de l'allee suit Rapport a Hanna");
             log.start("first_steps");
             log.start("unwelcome_spirits");
             log.start("bones_and_badges");
+            check(!log.canStart("report_to_hanna", 99), "Rapport a Hanna suit Os et Insignes");
             log.start("report_to_hanna");
             log.complete("first_steps");
             log.complete("unwelcome_spirits");
             log.complete("bones_and_badges");
             log.complete("report_to_hanna");
-            check(log.canStart(quest.id(), 99), "Livres Brulants doit etre accessible apres Rapport a Hanna");
+            check(log.canStart(quest.id(), 99), "l'allee doit s'ouvrir apres Rapport a Hanna");
+            check(!log.canStart(quest.id(), 1), "et seulement au niveau demande");
             log.start(quest.id());
             check(!log.goalDone(quest.id(), quest.goals().get(0)), "objectif deja termine");
-            log.reportDefeat("ember_elf_hunter", 4);
-            check(log.goalDone(quest.id(), quest.goals().get(0)), "les 4 elfes doivent valider l'objectif");
+            log.reportDefeat("ember_elf_hunter", 3);
+            check(log.goalDone(quest.id(), quest.goals().get(0)), "les 3 elfes doivent valider l'objectif");
             check(!log.readyToHandIn(quest.id()), "la recolte reste a faire");
             log.reportCollect("minecraft:blaze_powder", 1);
             check(!log.readyToHandIn(quest.id()), "un seul reagent ne suffit pas");
@@ -1032,11 +1034,39 @@ public final class CoreTests {
             check(Bestiary.get("grand_necromancer").boss(), "le grand necromancien est un boss");
         });
 
+        test("wiki : la trame de l'allee suit les douze etapes du scenario", () -> {
+            // Trame relevee dans Category:Firecat_Alley_Storyline_Quests (12 quetes).
+            List<String> beats = List.of("she_ran_crying_wildfire", "investigate_alley", "point_taken",
+                    "danger_danger", "dire_news", "the_cure", "administer_cure", "which_craft",
+                    "which_hunt", "not_that_witch", "the_embercat", "swiftarrow_ambush");
+            eq(12, beats.size(), "douze etapes de scenario dans l'allee");
+            for (int i = 0; i < beats.size(); i++) {
+                QuestDef quest = Quests.get(beats.get(i));
+                check(!quest.side(), "etape de scenario marquee annexe : " + quest.id());
+                if (i == 0) {
+                    eq("report_to_hanna", quest.prequest(), "entree dans la trame");
+                } else {
+                    eq(beats.get(i - 1), quest.prequest(), "enchaînement de " + quest.id());
+                }
+                check(quest.goals().size() >= 1, "etape sans objectif : " + quest.id());
+            }
+        });
+
+        test("wiki : les quetes annexes de l'allee correspondent aux annexes relevees", () -> {
+            for (String id : List.of("cold_hard_steel", "magma_mania", "oil_rush", "gotta_see_gretta",
+                    "ticklin_da_bones", "nightmare_time", "frost_knight_fight")) {
+                QuestDef quest = Quests.get(id);
+                check(quest.side(), "quete " + id + " doit etre annexe");
+                check(quest.prequest() != null || quest.levelRequired() <= quest.levelRequired(),
+                        "annexe sans prealable : " + id);
+            }
+        });
+
         test("wiki : les PNJ emblematiques donnent les quetes attendues", () -> {
             check(Npcs.get("headmaster_alderwise").givesQuests().contains("welcome_to_the_city"),
                     "le directeur accueille le joueur");
-            check(Npcs.get("hanna_emberwright").givesQuests().contains("burning_books"),
-                    "Hanna donne Livres Brulants");
+            check(Npcs.get("hanna_emberwright").givesQuests().contains("she_ran_crying_wildfire"),
+                    "Hanna ouvre la trame de l'allee");
             check(Npcs.get("captain_marrow").givesQuests().contains("the_harvest_lord_quest"),
                     "Marrow donne la traque du seigneur des moissons");
             check(Quests.get("the_harvest_lord_quest").goals().stream()

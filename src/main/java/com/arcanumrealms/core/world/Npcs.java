@@ -221,10 +221,8 @@ public final class Npcs {
                 .farewell(Dialogue.of(
                         "Rest, then come back for more work.",
                         "Reposez-vous, puis revenez pour la suite."))
-                .gives("first_steps", "unwelcome_spirits", "bones_and_badges", "pixie_problem",
-                        "sprite_trouble", "scarabs_in_the_grass", "report_to_hanna")
-                .ends("first_steps", "unwelcome_spirits", "bones_and_badges", "pixie_problem",
-                        "sprite_trouble", "scarabs_in_the_grass")
+                .gives("first_steps", "unwelcome_spirits", "bones_and_badges", "report_to_hanna", "pixie_problem", "sprite_trouble", "scarabs_in_the_grass", "ticklin_da_bones", "nightmare_time")
+                .ends("first_steps", "unwelcome_spirits", "bones_and_badges", "pixie_problem", "sprite_trouble", "scarabs_in_the_grass", "ticklin_da_bones", "nightmare_time")
                 .build());
 
         add(NpcDef.builder("melisande_whitehorn")
@@ -264,8 +262,8 @@ public final class Npcs {
                         "Watch for their pathfinders - they strike before you can shield.",
                         "Mefiez-vous de leurs eclaireurs : ils frappent avant qu'on puisse se proteger."))
                 .farewell(Dialogue.of("Come back if they regroup.", "Revenez s'ils se rallient."))
-                .gives("burning_books", "the_pathfinders", "magma_rising")
-                .ends("report_to_hanna", "burning_books", "the_pathfinders", "magma_rising")
+                .gives("she_ran_crying_wildfire", "investigate_alley", "point_taken", "the_cure", "administer_cure", "oil_rush")
+                .ends("report_to_hanna", "she_ran_crying_wildfire", "investigate_alley", "point_taken", "the_cure", "administer_cure", "oil_rush")
                 .build());
 
         add(NpcDef.builder("private_quinn")
@@ -285,7 +283,7 @@ public final class Npcs {
                         "Thank you. I am going to find my people.",
                         "Merci. Je vais chercher les miens."))
                 .farewell(Dialogue.of("Hold the line, wizard.", "Tenez la ligne, sorcier."))
-                .gives("quinns_orders", "the_spirit_speaks").ends("quinns_orders")
+                .gives("danger_danger", "dire_news", "cold_hard_steel", "magma_mania", "gotta_see_gretta").ends("danger_danger", "dire_news", "cold_hard_steel", "magma_mania", "gotta_see_gretta")
                 .build());
 
         add(NpcDef.builder("volcano_spirit")
@@ -307,8 +305,8 @@ public final class Npcs {
                         "Cooled at last. The street can breathe.",
                         "Enfin refroidi. La rue peut respirer."))
                 .farewell(Dialogue.of("Burn bright, not out.", "Brulez fort, pas jusqu'au bout."))
-                .gives("gravewynds_bastion", "swiftarrow_ambush")
-                .ends("the_spirit_speaks", "gravewynds_bastion", "swiftarrow_ambush")
+                .gives("which_craft", "which_hunt", "not_that_witch", "the_embercat", "swiftarrow_ambush")
+                .ends("which_craft", "which_hunt", "not_that_witch", "the_embercat", "swiftarrow_ambush")
                 .build());
 
         // ---------------------------------------------------------- l'avenue des marees
@@ -381,10 +379,8 @@ public final class Npcs {
                         "Quiet again. Whatever woke them came from the hollow - be ready.",
                         "Calme a nouveau. Ce qui les a reveillees vient du creux : soyez pret."))
                 .farewell(Dialogue.of("The road is yours, wizard.", "La route est a vous, sorcier."))
-                .gives("road_of_colossi", "cold_shoulders", "sentinels_stone", "shades_of_night",
-                        "ashes_of_the_road")
-                .ends("road_of_colossi", "cold_shoulders", "sentinels_stone", "shades_of_night",
-                        "ashes_of_the_road")
+                .gives("road_of_colossi", "cold_shoulders", "sentinels_stone", "shades_of_night", "ashes_of_the_road", "frost_knight_fight")
+                .ends("road_of_colossi", "cold_shoulders", "sentinels_stone", "shades_of_night", "ashes_of_the_road", "frost_knight_fight")
                 .build());
 
         // ------------------------------------------------------------ la grotte hantee
