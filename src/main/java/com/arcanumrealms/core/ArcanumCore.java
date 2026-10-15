@@ -37,6 +37,7 @@ public final class ArcanumCore {
             boolean hasOnePip = SpellBook.bySchool(school).stream().anyMatch(s -> s.pipCost() == 1);
             if (!hasOnePip) problems.add("L'ecole " + school.id() + " n'a aucun sort a 1 pip");
         }
+        problems.addAll(com.arcanumrealms.core.world.WorldData.validate());
         Creatures.all().forEach(def -> def.deck().forEach(id ->
                 SpellBook.find(id).orElseGet(() -> {
                     problems.add("Deck de " + def.id() + " : sort inconnu " + id);

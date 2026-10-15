@@ -116,6 +116,28 @@ def circle_texture():
     return img
 
 
+def gear_texture():
+    """Icone d'equipement : petite robe pliee sur un fond de parchemin."""
+    img = blank(16, 16)
+    cloth = (108, 116, 138, 255)
+    cloth_light = (144, 152, 174, 255)
+    trim = (217, 169, 60, 255)
+    for y in range(3, 14):
+        for x in range(3, 13):
+            put(img, x, y, cloth)
+    for x in range(3, 13):
+        put(img, x, 3, cloth_light)
+    for y in range(3, 8):
+        put(img, 8, y, cloth_light)
+    for x in range(4, 12):
+        put(img, x, 8, trim)
+    for y in range(9, 13):
+        put(img, 7, y, trim)
+    for x in range(5, 11):
+        put(img, x, 13, cloth)
+    return img
+
+
 def logo_texture():
     """Logo 128x128 : anneau a sept couleurs (une par ecole) autour d'un losange."""
     schools = [(228, 89, 43), (122, 85, 214), (116, 196, 232), (217, 169, 60),
@@ -177,6 +199,11 @@ def models():
                {"parent": "minecraft:item/handheld",
                 "textures": {"layer0": f'{NS}:item/duel_wand'}})
 
+    # objet d'equipement (une seule icone pour tout le catalogue)
+    write_json(os.path.join(ASSETS, 'models', 'item', 'wizard_gear.json'),
+               {"parent": "minecraft:item/generated",
+                "textures": {"layer0": f'{NS}:item/wizard_gear'}})
+
     # table de butin du bloc
     write_json(os.path.join(DATA, 'loot_tables', 'blocks', 'arcane_circle.json'), {
         "type": "minecraft:block",
@@ -214,12 +241,119 @@ def models():
                {"replace": False, "values": [f'{NS}:arcane_circle']})
 
 
+
+# ----------------------------------------------------- apparences des PNJ
+
+
+def wizard_skin(robe, trim, skin, hair):
+    """Peau de sorcier 64x64 (mise en page classique, modele humanoide vanilla).
+
+    Une seule peau par ecole : les professeurs portent la robe de leur ecole,
+    les habitants une robe neutre. La mise en page est celle des peaux de
+    joueur, donc le modele humanoide standard suffit a l'afficher.
+
+    Repere des faces (comme dans la classe CubeListBuilder de Minecraft) :
+    dessus (d, 0), dessous (d + w, 0), droite (0, d), face (d, d),
+    gauche (d + w, d), dos (d + w + d, d), ou w/h/d sont les dimensions du
+    membre et (0,0) le coin de sa region dans la peau.
+    """
+    img = blank(64, 64)
+
+    def rect(x0, y0, w, h, color):
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                put(img, x, y, color)
+
+    def shade(color, delta):
+        return (max(0, min(255, color[0] + delta)), max(0, min(255, color[1] + delta)),
+                max(0, min(255, color[2] + delta)), color[3])
+
+    def part(x0, y0, w, h, d, color):
+        """Remplit les six faces d'un membre de largeur w, hauteur h, profondeur d."""
+        rect(x0 + d, y0, w, d, shade(color, 12))            # dessus
+        rect(x0 + d + w, y0, w, d, shade(color, -18))       # dessous
+        rect(x0, y0 + d, d, h, shade(color, -6))            # droite
+        rect(x0 + d, y0 + d, w, h, color)                   # face avant
+        rect(x0 + d + w, y0 + d, d, h, shade(color, -10))   # gauche
+        rect(x0 + d + w + d, y0 + d, w, h, shade(color, -14))  # dos
+
+    face_skin = shade(skin, 0)
+    robe_dark = shade(robe, -30)
+    boot = (58, 44, 32, 255)
+
+    # --- tete (8 x 8 x 8, region 0,0) : visage clair, cheveux sur le crane
+    part(0, 0, 8, 8, 8, skin)
+    rect(8, 0, 8, 8, hair)                 # dessus du crane
+    rect(24, 8, 8, 8, hair)                # arriere de la tete
+    rect(0, 8, 3, 8, hair)                 # tempes
+    rect(8, 8, 8, 3, hair)                 # frange
+    rect(9, 11, 2, 2, (46, 34, 34, 255))   # oeil droit
+    rect(13, 11, 2, 2, (46, 34, 34, 255))  # oeil gauche
+    rect(10, 14, 4, 1, shade(skin, -40))   # bouche
+
+    # --- chapeau pointu (couche exterieure de la tete, region 32,0)
+    rect(40, 0, 8, 8, trim)                # sommet
+    rect(32, 8, 8, 8, shade(trim, -12))    # cote droit
+    rect(48, 8, 8, 8, shade(trim, -12))    # cote gauche
+    rect(56, 8, 8, 8, shade(trim, -18))    # dos
+    rect(40, 8, 8, 3, trim)                # bord du chapeau devant
+    rect(40, 11, 8, 1, shade(trim, -30))   # ombre du bord
+
+    # --- corps (8 x 12 x 4, region 16,16)
+    part(16, 16, 8, 12, 4, robe)
+    rect(20, 20, 8, 2, trim)               # col
+    rect(20, 28, 8, 2, (62, 44, 30, 255))  # ceinture
+    rect(23, 30, 2, 2, trim)               # boucle
+
+    # --- bras (4 x 12 x 4) : manches puis mains
+    part(40, 16, 4, 12, 4, robe)
+    part(32, 48, 4, 12, 4, robe)
+    rect(44, 24, 4, 4, face_skin)          # main droite
+    rect(36, 56, 4, 4, face_skin)          # main gauche
+    rect(40, 20, 4, 12, robe_dark)         # manche droite (exterieur)
+    rect(48, 20, 4, 12, robe_dark)         # manche droite (interieur)
+
+    # --- jambes (4 x 12 x 4) : bas de robe puis chaussures
+    part(0, 16, 4, 12, 4, robe_dark)
+    part(16, 48, 4, 12, 4, robe_dark)
+    rect(0, 28, 4, 4, boot)                # pied droit (exterieur)
+    rect(4, 28, 4, 4, boot)                # pied droit (avant)
+    rect(16, 60, 4, 4, boot)               # pied gauche (exterieur)
+    rect(20, 60, 4, 4, boot)               # pied gauche (avant)
+
+    return img
+
+
+SKINS = {
+    'neutral': ((108, 116, 138, 255), (196, 200, 214, 255), (238, 200, 168, 255), (74, 54, 40, 255)),
+    'pyromancy': ((196, 76, 40, 255), (250, 190, 90, 255), (238, 200, 168, 255), (166, 62, 36, 255)),
+    'tempest': ((122, 85, 214, 255), (222, 206, 255, 255), (236, 198, 168, 255), (58, 44, 96, 255)),
+    'frost': ((116, 196, 232, 255), (240, 252, 255, 255), (240, 206, 176, 255), (206, 224, 236, 255)),
+    'runomancy': ((217, 169, 60, 255), (255, 240, 200, 255), (234, 196, 160, 255), (140, 108, 40, 255)),
+    'sylvan': ((95, 191, 99, 255), (214, 246, 200, 255), (236, 200, 166, 255), (62, 110, 66, 255)),
+    'necromancy': ((107, 114, 128, 255), (196, 200, 214, 255), (226, 208, 196, 255), (40, 42, 52, 255)),
+    'equilibrium': ((215, 192, 141, 255), (255, 250, 232, 255), (240, 206, 176, 255), (150, 130, 96, 255)),
+}
+
+
+def npc_skins():
+    """Ecrit une texture par ecole, plus une tenue neutre pour les habitants."""
+    out = 0
+    for name, colors in SKINS.items():
+        path = os.path.join(ASSETS, 'textures', 'entity', 'npc', name + '.png')
+        write_png(path, wizard_skin(*colors), 64, 64)
+        out += 1
+    return out
+
+
 def main():
     models()
     write_png(os.path.join(ASSETS, 'textures', 'item', 'duel_wand.png'), wand_texture(), 16, 16)
     write_png(os.path.join(ASSETS, 'textures', 'block', 'arcane_circle.png'), circle_texture(), 16, 16)
+    write_png(os.path.join(ASSETS, 'textures', 'item', 'wizard_gear.png'), gear_texture(), 16, 16)
     pack_icon(os.path.join(RES, 'logo.png'))
-    print('Ressources generees.')
+    skins = npc_skins()
+    print(f'Ressources generees ({skins} apparences de PNJ).')
 
 
 if __name__ == '__main__':

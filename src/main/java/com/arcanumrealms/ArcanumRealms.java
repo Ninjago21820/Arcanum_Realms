@@ -4,6 +4,7 @@ import com.arcanumrealms.battle.ServerBattleManager;
 import com.arcanumrealms.core.ArcanumCore;
 import com.arcanumrealms.network.NetworkHandler;
 import com.arcanumrealms.registry.ModBlocks;
+import com.arcanumrealms.registry.ModEntities;
 import com.arcanumrealms.registry.ModCreativeTabs;
 import com.arcanumrealms.registry.ModItems;
 import com.mojang.logging.LogUtils;
@@ -33,6 +34,7 @@ public class ArcanumRealms {
 
         ModItems.register(modBus);
         ModBlocks.register(modBus);
+        ModEntities.register(modBus);
         ModCreativeTabs.register(modBus);
 
         modBus.addListener(this::commonSetup);
@@ -41,6 +43,7 @@ public class ArcanumRealms {
 
         MinecraftForge.EVENT_BUS.register(ServerBattleManager.INSTANCE);
         MinecraftForge.EVENT_BUS.register(new com.arcanumrealms.command.ArcanumCommand());
+        MinecraftForge.EVENT_BUS.register(new com.arcanumrealms.server.WorldEvents());
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

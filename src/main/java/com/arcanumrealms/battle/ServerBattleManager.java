@@ -12,6 +12,8 @@ import com.arcanumrealms.core.util.Rng;
 import com.arcanumrealms.core.util.StatsFactory;
 import com.arcanumrealms.network.NetworkHandler;
 import com.arcanumrealms.network.packet.BattleStatePacket;
+import com.arcanumrealms.core.world.Bestiary;
+import com.arcanumrealms.core.world.WorldCreature;
 import com.arcanumrealms.player.WizardData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -440,6 +442,21 @@ public class ServerBattleManager {
         }
     }
 
+    /**
+     * Vrai si cette creature fait partie d'un duel en cours.
+     *
+     * <p>Dans ce cas c'est le duel qui gere les recompenses et la progression :
+     * l'evenement de mort ne doit pas compter une seconde fois.
+     */
+    public boolean isDuelCreature(net.minecraft.world.entity.Entity entity) {
+        for (Session session : sessions.values()) {
+            for (LivingEntity living : session.entities.values()) {
+                if (living.getId() == entity.getId()) return true;
+            }
+        }
+        return false;
+    }
+
     /** Fin du duel : recompenses, liberation des creatures, nettoyage. */
     private void endSession(Session session, boolean grantRewards) {
         if (session.state == State.FINISHED) return;
@@ -460,6 +477,15 @@ public class ServerBattleManager {
                 int xp = 0;
                 for (CreatureDef def : session.creatures.values()) {
                     xp += def.level() * ArcanumConfig.XP_PER_CREATURE_LEVEL.get();
+                }
+                // Les quetes avancent sur les creatures reellement vaincues.
+                for (Map.Entry<String, CreatureDef> entry : session.creatures.entrySet()) {
+                    Combatant combatant = session.battle.get(entry.getKey());
+                    if (combatant != null && combatant.alive()) continue;
+                    WorldCreature world = Bestiary.find(entry.getValue().id()).orElse(null);
+                    com.arcanumrealms.server.QuestService.onCreatureDefeated(player,
+                            entry.getValue().id(),
+                            world == null ? "" : world.classification());
                 }
                 player.giveExperiencePoints(Math.max(1, xp / 2));
                 WizardData data = session.wizards.get(uuid);

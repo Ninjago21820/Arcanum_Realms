@@ -24,6 +24,16 @@ import com.arcanumrealms.core.school.School;
 import com.arcanumrealms.core.spell.Spell;
 import com.arcanumrealms.core.spell.SpellBook;
 import com.arcanumrealms.core.spell.SpellDescriber;
+import com.arcanumrealms.core.world.GearDef;
+import com.arcanumrealms.core.world.Gears;
+import com.arcanumrealms.core.world.NpcDef;
+import com.arcanumrealms.core.world.Npcs;
+import com.arcanumrealms.core.world.QuestDef;
+import com.arcanumrealms.core.world.Quests;
+import com.arcanumrealms.core.world.WorldCreature;
+import com.arcanumrealms.core.world.Bestiary;
+import com.arcanumrealms.core.world.ZoneDef;
+import com.arcanumrealms.core.world.Zones;
 
 public class DumpLang {
     public static void main(String[] args) {
@@ -39,6 +49,30 @@ public class DumpLang {
               .append(SpellDescriber.describe(spell, false)).append('\\t')
               .append(SpellDescriber.describe(spell, true)).append('\\n');
         }
+        for (WorldCreature creature : Bestiary.all()) {
+            sb.append("creature.arcanum_realms.").append(creature.id()).append('\\t')
+              .append(creature.nameEn()).append('\\t').append(creature.nameFr()).append('\\n');
+        }
+        for (NpcDef npc : Npcs.all()) {
+            sb.append("npc.arcanum_realms.").append(npc.id()).append('\\t')
+              .append(npc.nameEn()).append('\\t').append(npc.nameFr()).append('\\n');
+            sb.append("npc.arcanum_realms.").append(npc.id()).append(".title").append('\\t')
+              .append(npc.titleEn()).append('\\t').append(npc.titleFr()).append('\\n');
+        }
+        for (GearDef gear : Gears.all()) {
+            sb.append("gear.arcanum_realms.").append(gear.id()).append('\\t')
+              .append(gear.nameEn()).append('\\t').append(gear.nameFr()).append('\\n');
+        }
+        for (ZoneDef zone : Zones.all()) {
+            sb.append("zone.arcanum_realms.").append(zone.id()).append('\\t')
+              .append(zone.nameEn()).append('\\t').append(zone.nameFr()).append('\\n');
+        }
+        for (QuestDef quest : Quests.all()) {
+            sb.append("quest.arcanum_realms.").append(quest.id()).append('\\t')
+              .append(quest.nameEn()).append('\\t').append(quest.nameFr()).append('\\n');
+            sb.append("quest.arcanum_realms.").append(quest.id()).append(".summary").append('\\t')
+              .append(quest.summaryEn()).append('\\t').append(quest.summaryFr()).append('\\n');
+        }
         System.out.print(sb);
     }
 }
@@ -46,6 +80,123 @@ public class DumpLang {
 
 # Textes ecrits a la main : interface, messages, commandes, objets.
 MANUAL = {
+    # --- equipement
+    'item.arcanum_realms.wizard_gear': ['Wizard gear', 'Equipement de sorcier'],
+    'item.arcanum_realms.wizard_gear.empty': [
+        'Gear token without an item: use /arcanum equipement <id>',
+        'Jeton d\'equipement sans piece : utilisez /arcanum equipement <id>'],
+    'item.arcanum_realms.wizard_gear.equip': [
+        'Right-click: equip - Shift right-click: unequip',
+        'Clic droit : porter - Clic droit accroupi : retirer'],
+    'gear.arcanum_realms.slot.hat': ['Hat', 'Chapeau'],
+    'gear.arcanum_realms.slot.robe': ['Robe', 'Robe'],
+    'gear.arcanum_realms.slot.boots': ['Boots', 'Bottes'],
+    'gear.arcanum_realms.slot.wand': ['Wand', 'Baguette'],
+    'gear.arcanum_realms.slot.athame': ['Athame', 'Athame'],
+    'gear.arcanum_realms.slot.ring': ['Ring', 'Anneau'],
+    'gear.arcanum_realms.slot.amulet': ['Amulet', 'Amulette'],
+    'gear.arcanum_realms.slot.deck': ['Deck', 'Deck'],
+    'gear.arcanum_realms.level': ['level %s', 'niveau %s'],
+    'arcanum_realms.message.gear_equipped': ['Equipped: %s', 'Porte : %s'],
+    'arcanum_realms.message.gear_removed': ['Unequipped: %s', 'Retire : %s'],
+
+    # --- PNJ et dialogues
+    'gui.arcanum_realms.dialogue.close': ['Goodbye', 'Au revoir'],
+    'gui.arcanum_realms.dialogue.goals': ['Goals', 'Objectifs'],
+    'gui.arcanum_realms.dialogue.rewards': ['Rewards', 'Recompenses'],
+    'gui.arcanum_realms.dialogue.buy': ['Click to buy', 'Cliquez pour acheter'],
+    'arcanum_realms.dialogue.handin_ready': ['You have something to hand in.', 'Vous avez une quete a remettre.'],
+    'arcanum_realms.dialogue.quest_available': ['A quest is available.', 'Une quete est disponible.'],
+    'arcanum_realms.npc.dont_hit': ['%s: "Please keep your spells to yourself."',
+                                    '%s : "Gardez vos sorts pour vous, je vous prie."'],
+
+    # --- journal de quetes
+    'gui.arcanum_realms.journal.title': ['Quest journal', 'Journal de quetes'],
+    'gui.arcanum_realms.journal.close': ['Close', 'Fermer'],
+    'gui.arcanum_realms.journal.scroll': ['Scroll with the mouse wheel', 'Faites defiler a la molette'],
+    'arcanum_realms.quest.journal_empty': ['No quest in progress. Talk to the headmaster.',
+                                           'Aucune quete en cours. Parlez au directeur.'],
+    'arcanum_realms.quest.journal_ready': ['Ready to hand in to %s', 'A remettre a %s'],
+
+    # --- quetes
+    'arcanum_realms.quest.accepted': ['Quest accepted: %s', 'Quete acceptee : %s'],
+    'arcanum_realms.quest.abandoned': ['Quest abandoned: %s', 'Quete abandonnee : %s'],
+    'arcanum_realms.quest.completed': ['Quest completed: %s', 'Quete terminee : %s'],
+    'arcanum_realms.quest.already_done': ['You have already completed this quest.',
+                                          'Vous avez deja termine cette quete.'],
+    'arcanum_realms.quest.already_active': ['This quest is already in your journal.',
+                                            'Cette quete est deja dans votre journal.'],
+    'arcanum_realms.quest.level_required': ['You need level %s for "%s".',
+                                            'Il vous faut le niveau %s pour "%s".'],
+    'arcanum_realms.quest.prequest': ['First complete "%s".', 'Terminez d\'abord "%s".'],
+    'arcanum_realms.quest.not_ready': ['Your goals are not complete yet.', 'Vos objectifs ne sont pas encore remplis.'],
+    'arcanum_realms.quest.goals_done': ['Goals complete: %s', 'Objectifs remplis : %s'],
+    'arcanum_realms.quest.talk_to': ['Talk to %s to hand in.', 'Parlez a %s pour remettre.'],
+    'arcanum_realms.quest.reward_xp': ['+%s XP', '+%s XP'],
+    'arcanum_realms.quest.reward_gold': ['+%s gold', '+%s or'],
+    'arcanum_realms.quest.reward_spell': ['New spell learned: %s', 'Nouveau sort appris : %s'],
+    'arcanum_realms.quest.reward_item': ['Received: %s', 'Recu : %s'],
+    'arcanum_realms.quest.choice_available': ['Also available as a reward: %s',
+                                              'Egalement disponible en recompense : %s'],
+    'arcanum_realms.quest.level_up': ['Level %s!', 'Niveau %s !'],
+    'arcanum_realms.quest.next': ['Next quest: "%s" from %s', 'Quete suivante : "%s" aupres de %s'],
+    'arcanum_realms.quest.next_later': ['Next quest: "%s" (level %s)',
+                                        'Quete suivante : "%s" (niveau %s)'],
+    'arcanum_realms.quest.zone_unlocked': ['New zone unlocked: %s - %s',
+                                           'Nouvelle zone ouverte : %s - %s'],
+
+    # --- boutique
+    'arcanum_realms.shop.too_low': ['This item requires level %s.', 'Cet objet demande le niveau %s.'],
+    'arcanum_realms.shop.no_gold': ['You need %s gold (you have %s).',
+                                    'Il vous faut %s or (vous en avez %s).'],
+    'arcanum_realms.shop.bought': ['Bought: %s for %s gold', 'Achete : %s pour %s or'],
+
+    # --- zones
+    'arcanum_realms.zone.locked': ['%s is sealed until level %s.', '%s est scelle jusqu\'au niveau %s.'],
+    'arcanum_realms.zone.dungeon': ['Dungeon zone: bring friends.', 'Zone de donjon : venez accompagne.'],
+
+    # --- commandes du monde
+    'arcanum_realms.command.help.zones': ['/arcanum zones [set|del] - list, place or remove zones',
+                                          '/arcanum zones [set|del] - lister, poser ou retirer les zones'],
+    'arcanum_realms.command.help.pnj': ['/arcanum pnj [id|ici] - list NPCs or place them',
+                                        '/arcanum pnj [id|ici] - lister les PNJ ou les placer'],
+    'arcanum_realms.command.help.quetes': ['/arcanum quetes [id] - quest journal or details',
+                                           '/arcanum quetes [id] - journal de quetes ou details'],
+    'arcanum_realms.command.help.quete': ['/arcanum quete <accepter|abandonner|remettre> <id>',
+                                          '/arcanum quete <accepter|abandonner|remettre> <id>'],
+    'arcanum_realms.command.help.or': ['/arcanum or <amount> - add or remove gold',
+                                       '/arcanum or <montant> - ajouter ou retirer de l\'or'],
+    'arcanum_realms.command.help.equipement': ['/arcanum equipement [id|palier|retirer] - gear',
+                                               '/arcanum equipement [id|palier|retirer] - equipement'],
+    'arcanum_realms.command.zones.header': ['Arcanum Realms zones (%s):', 'Zones d\'Arcanum Realms (%s) :'],
+    'arcanum_realms.command.zones.missing': ['Not placed yet: %s', 'Pas encore posees : %s'],
+    'arcanum_realms.command.zone_unknown': ['Unknown zone: %s', 'Zone inconnue : %s'],
+    'arcanum_realms.command.zone_absent': ['Zone %s has no anchor.', 'La zone %s n\'a pas d\'ancre.'],
+    'arcanum_realms.command.zone_set': ['Zone %s (%s) anchored here, radius %s blocks.',
+                                        'Zone %s (%s) posee ici, rayon %s blocs.'],
+    'arcanum_realms.command.zone_deleted': ['Anchor of %s removed.', 'Ancre de %s retiree.'],
+    'arcanum_realms.command.npcs.header': ['Arcanum Realms NPCs (%s):', 'PNJ d\'Arcanum Realms (%s) :'],
+    'arcanum_realms.command.npc_unknown': ['Unknown NPC: %s', 'PNJ inconnu : %s'],
+    'arcanum_realms.command.npc_spawned': ['%s is waiting for you.', '%s vous attend.'],
+    'arcanum_realms.command.npc_failed': ['Could not place the NPC here.', 'Impossible de poser le PNJ ici.'],
+    'arcanum_realms.command.npcs_placed': ['%s NPC(s) placed in %s.', '%s PNJ pose(s) dans %s.'],
+    'arcanum_realms.command.no_zone': ['No zone here: place one with /arcanum zones set.',
+                                       'Aucune zone ici : posez-en une avec /arcanum zones set.'],
+    'arcanum_realms.command.zone_no_npc': ['No NPC lives in %s.', 'Aucun PNJ n\'habite %s.'],
+    'arcanum_realms.command.no_creature': ['No creature of this zone could be spawned.',
+                                           'Aucune creature de cette zone n\'a pu apparaitre.'],
+    'arcanum_realms.command.creatures_spawned': ['%s creature(s) appeared.', '%s creature(s) apparue(s).'],
+    'arcanum_realms.command.quest_unknown': ['Unknown quest: %s', 'Quete inconnue : %s'],
+    'arcanum_realms.command.gold': ['You now have %s gold.', 'Vous avez maintenant %s or.'],
+    'arcanum_realms.command.gear.header': ['Arcanum Realms gear (%s):', 'Equipement d\'Arcanum Realms (%s) :'],
+    'arcanum_realms.command.gear.gold': ['Gold: %s', 'Or : %s'],
+    'arcanum_realms.command.gear_unknown': ['Unknown item: %s', 'Objet inconnu : %s'],
+    'arcanum_realms.command.gear_given': ['Received: %s', 'Recu : %s'],
+    'arcanum_realms.command.gear_tier': ['Full tier %s set received.', 'Set complet du palier %s recu.'],
+    'arcanum_realms.command.slot_unknown': ['Unknown slot: %s', 'Emplacement inconnu : %s'],
+    'arcanum_realms.command.slot_empty': ['Nothing is equipped there.', 'Rien n\'est porte ici.'],
+    'arcanum_realms.command.gear_removed': ['Unequipped: %s', 'Retire : %s'],
+
     'item.arcanum_realms.duel_wand': ['Duel Wand', 'Baguette de Duel'],
     'item.arcanum_realms.duel_wand.hint': [
         'Right-click a creature to start a duel, or a magic circle to call an encounter.',
@@ -181,7 +332,7 @@ def main():
         dumper = os.path.join(work, 'DumpLang.java')
         with open(dumper, 'w', encoding='utf-8') as f:
             f.write(DUMPER)
-        subprocess.run([javac, '-encoding', 'UTF-8', '-d', work] + core_files + [dumper], check=True)
+        subprocess.run([javac, '-encoding', 'UTF-8', '-nowarn', '-d', work] + core_files + [dumper], check=True)
         out = subprocess.run([java, '-Dfile.encoding=UTF-8', '-cp', work, 'DumpLang'],
                              check=True, capture_output=True, text=True).stdout
     finally:

@@ -39,6 +39,10 @@ public final class NetworkHandler {
         register(id++, BattleActionPacket.class, BattleActionPacket::encode, BattleActionPacket::decode, BattleActionPacket::handle);
         register(id++, RequestWizardDataPacket.class, RequestWizardDataPacket::encode, RequestWizardDataPacket::decode, RequestWizardDataPacket::handle);
         register(id++, SaveDeckPacket.class, SaveDeckPacket::encode, SaveDeckPacket::decode, SaveDeckPacket::handle);
+        register(id++, QuestActionPacket.class, QuestActionPacket::encode, QuestActionPacket::decode, QuestActionPacket::handle);
+        register(id++, NpcInteractPacket.class, NpcInteractPacket::encode, NpcInteractPacket::decode, NpcInteractPacket::handle);
+        register(id++, NpcDialoguePacket.class, NpcDialoguePacket::encode, NpcDialoguePacket::decode, NpcDialoguePacket::handle);
+        register(id++, QuestJournalPacket.class, QuestJournalPacket::encode, QuestJournalPacket::decode, QuestJournalPacket::handle);
     }
 
     private static <T> void register(int id, Class<T> type,
@@ -75,6 +79,22 @@ public final class NetworkHandler {
             sendToPlayer(player, new BattleEndPacket(session.id, playersWon, session.battle.isDraw(),
                     session.battle.round()));
         }
+    }
+
+    /** Envoie le dialogue d'un PNJ au joueur. */
+    public static void sendNpcDialogue(ServerPlayer player, String npcId, java.util.List<String> lines,
+                                       java.util.List<com.arcanumrealms.server.DialogueService.QuestAction> actions) {
+        java.util.List<NpcDialoguePacket.Action> encoded = new java.util.ArrayList<>();
+        for (com.arcanumrealms.server.DialogueService.QuestAction action : actions) {
+            encoded.add(new NpcDialoguePacket.Action(action.id(), action.label(), action.goals(),
+                    action.rewards(), action.kind()));
+        }
+        sendToPlayer(player, new NpcDialoguePacket(npcId, lines, encoded));
+    }
+
+    /** Envoie le journal de quetes au joueur. */
+    public static void sendQuestJournal(ServerPlayer player, java.util.List<String> lines) {
+        sendToPlayer(player, new QuestJournalPacket(lines));
     }
 
     public static void sendWizardData(ServerPlayer player) {

@@ -21,3 +21,5 @@ Thumbs.db
 
 # --- Toolchain locale (non versionnee) ---
 tools/.jdk/
+javac.*.args
+*.args

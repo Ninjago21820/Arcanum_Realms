@@ -22,8 +22,13 @@ public final class StatsFactory {
     private StatsFactory() {}
 
     public static int healthFor(School school, int level) {
+        return healthFor(school, level, 0);
+    }
+
+    /** PV maximum, bonus d'equipement inclus (les chapeaux et robes en donnent beaucoup). */
+    public static int healthFor(School school, int level, int bonusHealth) {
         int raw = BASE_HEALTH + Math.max(0, level - 1) * HEALTH_PER_LEVEL;
-        return Math.round(raw * school.healthMultiplier());
+        return Math.max(1, Math.round(raw * school.healthMultiplier()) + Math.max(0, bonusHealth));
     }
 
     /**
@@ -37,16 +42,20 @@ public final class StatsFactory {
                              int flatResist,
                              int healBoost,
                              int incomingHealBoost,
+                             int healthBonus,
                              Map<School, Integer> damageBonus,
                              Map<School, Integer> resist,
                              Map<School, Integer> pierce) {
 
         public static WizardGear none() {
-            return new WizardGear(25, 0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of());
+            return new WizardGear(25, 0, 0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of());
         }
 
-        public WizardGear withPowerPipChance(int value) { return new WizardGear(value, critRating, blockRating, accuracyBonus, flatResist, healBoost, incomingHealBoost, damageBonus, resist, pierce); }
-        public WizardGear withCrit(int value) { return new WizardGear(powerPipChance, value, blockRating, accuracyBonus, flatResist, healBoost, incomingHealBoost, damageBonus, resist, pierce); }
+        public WizardGear withPowerPipChance(int value) { return new WizardGear(value, critRating, blockRating, accuracyBonus, flatResist, healBoost, incomingHealBoost, healthBonus, damageBonus, resist, pierce); }
+
+        public WizardGear withCrit(int value) { return new WizardGear(powerPipChance, value, blockRating, accuracyBonus, flatResist, healBoost, incomingHealBoost, healthBonus, damageBonus, resist, pierce); }
+
+        public WizardGear withHealth(int value) { return new WizardGear(powerPipChance, critRating, blockRating, accuracyBonus, flatResist, healBoost, incomingHealBoost, value, damageBonus, resist, pierce); }
     }
 
     public static CombatantStats forWizard(School school, int level, WizardGear gear) {

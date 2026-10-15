@@ -19,7 +19,10 @@ import java.util.*;
  */
 public final class WizardData {
 
-    private static final String ROOT = "arcanum_realms:wizard";
+    /** Cle NBT racine des donnees du sorcier dans les donnees persistantes du joueur. */
+    public static final String NBT_ROOT = "arcanum_realms:wizard";
+
+    private static final String ROOT = NBT_ROOT;
 
     private School school = School.PYROMANCY;
     private int level = 1;
@@ -29,6 +32,13 @@ public final class WizardData {
     private int critRating = -1;
     private final Set<String> learned = new LinkedHashSet<>();
     private final Map<String, Integer> deck = new LinkedHashMap<>();
+    /** Or gagne en duel et en quete (comme les pieces lachees par les creatures). */
+    private int gold;
+    /** Journal de quetes du joueur. */
+    private final com.arcanumrealms.core.world.QuestLog quests = new com.arcanumrealms.core.world.QuestLog();
+    /** Equipement porte, par emplacement. */
+    private final Map<com.arcanumrealms.core.world.GearSlot, String> equipped =
+            new EnumMap<>(com.arcanumrealms.core.world.GearSlot.class);
 
     // ------------------------------------------------------------ acces
 
@@ -51,6 +61,47 @@ public final class WizardData {
         return out;
     }
 
+    public int gold() { return gold; }
+
+    public void addGold(int amount) { gold = Math.max(0, gold + amount); }
+
+    public boolean spendGold(int amount) {
+        if (amount <= 0) return true;
+        if (gold < amount) return false;
+        gold -= amount;
+        return true;
+    }
+
+    public void setGold(int value) { gold = Math.max(0, value); }
+
+    public com.arcanumrealms.core.world.QuestLog quests() { return quests; }
+
+    /** Equipement porte, dans l'ordre des emplacements. */
+    public List<com.arcanumrealms.core.world.GearDef> equippedGear() {
+        List<com.arcanumrealms.core.world.GearDef> out = new ArrayList<>();
+        for (String id : equipped.values()) {
+            com.arcanumrealms.core.world.Gears.find(id).ifPresent(out::add);
+        }
+        return out;
+    }
+
+    public String equippedId(com.arcanumrealms.core.world.GearSlot slot) {
+        return equipped.get(slot);
+    }
+
+    /**
+     * Porte une piece d'equipement.
+     *
+     * @return l'identifiant de la piece remplacee, ou null s'il n'y en avait pas
+     */
+    public String equip(com.arcanumrealms.core.world.GearDef gear) {
+        return equipped.put(gear.slot(), gear.id());
+    }
+
+    public String unequip(com.arcanumrealms.core.world.GearSlot slot) {
+        return equipped.remove(slot);
+    }
+
     public int deckSize() {
         int total = 0;
         for (int n : deck.values()) total += n;
@@ -69,6 +120,12 @@ public final class WizardData {
     // -------------------------------------------------- contenu de depart
 
     /** Apprend tous les sorts debloques par le niveau courant. */
+    /** Apprend un sort (recompense de quete). Renvoie faux s'il est deja connu. */
+    public boolean learn(String spellId) {
+        if (SpellBook.find(spellId).isEmpty()) return false;
+        return learned.add(spellId);
+    }
+
     public List<Spell> refreshLearnedSpells() {
         List<Spell> newlyLearned = new ArrayList<>();
         for (Spell spell : SpellBook.trainable(school, level)) {
@@ -198,7 +255,36 @@ public final class WizardData {
         CompoundTag deckTag = new CompoundTag();
         deck.forEach(deckTag::putInt);
         tag.put("deck", deckTag);
+        tag.putInt("gold", gold);
+        CompoundTag questTag = new CompoundTag();
+        questTag.put("active", stringList(quests.active()));
+        questTag.put("completed", stringList(new ArrayList<>(quests.completed())));
+        CompoundTag progressTag = new CompoundTag();
+        quests.rawProgress().forEach((questId, goals) -> {
+            CompoundTag goalsTag = new CompoundTag();
+            goals.forEach(goalsTag::putInt);
+            progressTag.put(questId, goalsTag);
+        });
+        questTag.put("progress", progressTag);
+        tag.put("quests", questTag);
+        CompoundTag gearTag = new CompoundTag();
+        equipped.forEach((slot, id) -> gearTag.putString(slot.name(), id));
+        tag.put("gear", gearTag);
         return tag;
+    }
+
+    private static ListTag stringList(List<String> values) {
+        ListTag list = new ListTag();
+        for (String value : values) list.add(net.minecraft.nbt.StringTag.valueOf(value));
+        return list;
+    }
+
+    private static List<String> readStringList(CompoundTag tag, String key) {
+        List<String> out = new ArrayList<>();
+        if (!tag.contains(key, Tag.TAG_LIST)) return out;
+        ListTag list = tag.getList(key, Tag.TAG_STRING);
+        for (int i = 0; i < list.size(); i++) out.add(list.getString(i));
+        return out;
     }
 
     public void read(CompoundTag tag) {
@@ -221,5 +307,28 @@ public final class WizardData {
         deck.clear();
         CompoundTag deckTag = tag.getCompound("deck");
         for (String key : deckTag.getAllKeys()) deck.put(key, deckTag.getInt(key));
+        gold = tag.getInt("gold");
+        CompoundTag questTag = tag.getCompound("quests");
+        Map<String, Map<String, Integer>> progress = new LinkedHashMap<>();
+        CompoundTag progressTag = questTag.getCompound("progress");
+        for (String questId : progressTag.getAllKeys()) {
+            CompoundTag goalsTag = progressTag.getCompound(questId);
+            Map<String, Integer> goals = new LinkedHashMap<>();
+            for (String goalKey : goalsTag.getAllKeys()) goals.put(goalKey, goalsTag.getInt(goalKey));
+            progress.put(questId, goals);
+        }
+        quests.restore(readStringList(questTag, "active"),
+                new LinkedHashSet<>(readStringList(questTag, "completed")), progress);
+        equipped.clear();
+        CompoundTag gearTag = tag.getCompound("gear");
+        for (String slotName : gearTag.getAllKeys()) {
+            try {
+                com.arcanumrealms.core.world.GearSlot slot =
+                        com.arcanumrealms.core.world.GearSlot.valueOf(slotName);
+                equipped.put(slot, gearTag.getString(slotName));
+            } catch (IllegalArgumentException ignored) {
+                // emplacement inconnu : ignore (contenu retire dans une version plus recente)
+            }
+        }
     }
 }

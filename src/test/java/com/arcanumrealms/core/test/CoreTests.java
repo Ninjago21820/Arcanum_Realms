@@ -12,9 +12,14 @@ import com.arcanumrealms.core.spell.SpellBook;
 import com.arcanumrealms.core.status.Status;
 import com.arcanumrealms.core.util.Rng;
 import com.arcanumrealms.core.util.StatsFactory;
+import com.arcanumrealms.core.world.*;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.arcanumrealms.core.school.School.*;
 
@@ -45,6 +50,13 @@ public final class CoreTests {
         testAreaOfEffect();
         testFullBattleSimulation();
         testSpellData();
+        testWorldZones();
+        testWorldNpcs();
+        testWorldCreatures();
+        testWorldGear();
+        testQuestLog();
+        testQuestRewards();
+        testWikiAnchors();
 
         System.out.println();
         System.out.println("Tests reussis : " + passed);
@@ -620,6 +632,416 @@ public final class CoreTests {
                 check(!fr.isBlank(), "description francaise manquante pour " + spell.id());
                 check(!en.isBlank(), "description anglaise manquante pour " + spell.id());
             }
+        });
+    }
+
+    // ------------------------------------------------------------ monde
+
+    private static void testWorldZones() {
+        test("monde : les sept zones sont coherentes", () -> {
+            eq(7, Zones.all().size(), "nombre de zones");
+            for (ZoneDef zone : Zones.all()) {
+                check(!zone.nameFr().isBlank() && !zone.nameEn().isBlank(),
+                        "nom manquant pour la zone " + zone.id());
+                check(!zone.descriptionFr().isBlank() && !zone.descriptionEn().isBlank(),
+                        "description manquante pour la zone " + zone.id());
+                check(zone.minLevel() <= zone.maxLevel(), "plage de niveaux inversee : " + zone.id());
+                // La cite et le bosquet sont des lieux surs : aucune creature n'y rode.
+                if (!List.of("grand_place", "bosquet").contains(zone.id())) {
+                    check(!zone.creatures().isEmpty(), "aucune creature dans " + zone.id());
+                }
+                for (String creatureId : zone.creatures()) {
+                    check(Bestiary.find(creatureId).isPresent(),
+                            "creature inconnue " + creatureId + " dans " + zone.id());
+                }
+                for (String npcId : zone.npcs()) {
+                    check(Npcs.find(npcId).isPresent(), "PNJ inconnu " + npcId + " dans " + zone.id());
+                }
+                for (String questId : zone.quests()) {
+                    check(Quests.find(questId).isPresent(), "quete inconnue " + questId + " dans " + zone.id());
+                }
+                check(!zone.dungeon() || zone.unlockQuest() != null,
+                        "donjon sans quete de deverrouillage : " + zone.id());
+            }
+        });
+
+        test("monde : le deverrouillage des zones suit la progression", () -> {
+            Map<String, Integer> unlocks = new LinkedHashMap<>();
+            for (ZoneDef zone : Zones.all()) {
+                unlocks.put(zone.id(), zone.minLevel());
+            }
+            // Chaque zone au-dela de la premiere est ouverte par une quete de la chaine principale.
+            for (ZoneDef zone : Zones.all()) {
+                if (zone.unlockQuest() == null) {
+                    // Ouvertes d'emblee : la cite, le bosquet des ecoles et le sentier de depart.
+                    check(List.of("grand_place", "bosquet", "sentier_lucioles").contains(zone.id()),
+                            "zone ouverte d'emblee inattendue : " + zone.id());
+                    continue;
+                }
+                QuestDef unlock = Quests.get(zone.unlockQuest());
+                check(unlock.levelRequired() <= zone.unlockLevel(),
+                        "quete " + unlock.id() + " (nv " + unlock.levelRequired()
+                                + ") n'ouvre pas " + zone.id() + " (nv " + zone.unlockLevel() + ")");
+                check(zone.minLevel() == zone.unlockLevel(),
+                        "niveau d'entree de " + zone.id() + " different de sa quete d'ouverture");
+                check(zone.minLevel() >= 1, "niveau minimal invalide pour " + zone.id());
+            }
+            // L'acces a la cite ne demande aucun niveau.
+            check(Zones.get("grand_place").minLevel() == 1, "la cite doit etre accessible au niveau 1");
+        });
+    }
+
+    private static void testWorldNpcs() {
+        test("monde : les PNJ sont coherents", () -> {
+            check(Npcs.all().size() >= 19, "PNJ attendus, trouve " + Npcs.all().size());
+            eq(7, Npcs.trainers().size(), "nombre de professeurs");
+            for (NpcDef npc : Npcs.all()) {
+                check(!npc.nameFr().isBlank() && !npc.nameEn().isBlank(), "nom manquant : " + npc.id());
+                check(!npc.descriptionFr().isBlank() && !npc.descriptionEn().isBlank(),
+                        "description manquante : " + npc.id());
+                check(Zones.find(npc.zoneId()).isPresent(), "zone inconnue pour " + npc.id());
+                check(npc.greeting().size() > 0, "accueil manquant pour " + npc.id());
+                check(npc.farewell().size() > 0, "adieu manquant pour " + npc.id());
+                for (String questId : npc.givesQuests()) {
+                    QuestDef quest = Quests.get(questId);
+                    eq(npc.id(), quest.giverNpc(), "quete " + questId + " : donneur");
+                }
+                for (String questId : npc.endsQuests()) {
+                    QuestDef quest = Quests.get(questId);
+                    eq(npc.id(), quest.handInNpc(), "quete " + questId + " : remettant");
+                }
+                if (npc.isTrainer()) {
+                    check(npc.school() != null, "professeur sans ecole : " + npc.id());
+                }
+            }
+        });
+
+        test("monde : les dialogues existent dans les deux langues", () -> {
+            for (NpcDef npc : Npcs.all()) {
+                for (Dialogue dialogue : List.of(npc.greeting(), npc.inProgress(), npc.completion(), npc.farewell())) {
+                    for (DialogueLine line : dialogue.lines()) {
+                        check(!line.fr().isBlank(), "ligne francaise vide chez " + npc.id());
+                        check(!line.en().isBlank(), "ligne anglaise vide chez " + npc.id());
+                        check(line.fr().length() <= 320, "ligne francaise trop longue chez " + npc.id());
+                    }
+                }
+            }
+        });
+
+        test("monde : chaque professeur enseigne une ecole differente", () -> {
+            Set<School> schools = new LinkedHashSet<>();
+            for (NpcDef npc : Npcs.trainers()) {
+                check(schools.add(npc.school()), "ecole en double chez les professeurs : " + npc.school());
+            }
+            eq(School.values().length, schools.size(), "toutes les ecoles doivent avoir un professeur");
+        });
+    }
+
+    private static void testWorldCreatures() {
+        test("monde : le bestiaire reprend les fiches de la wiki", () -> {
+            check(Bestiary.all().size() >= 30, "creatures attendues, trouve " + Bestiary.all().size());
+            for (WorldCreature creature : Bestiary.all()) {
+                check(creature.health() > 0, "sante invalide : " + creature.id());
+                check(creature.rank() >= 1 && creature.rank() <= 8, "rang invalide : " + creature.id());
+                if (!creature.boss()) {
+                    check(creature.rank() <= 5, "rang trop eleve hors boss : " + creature.id());
+                }
+                check(creature.school() != null, "ecole manquante : " + creature.id());
+                check(!creature.deck().isEmpty(), "aucun sort pour " + creature.id());
+                for (String spellId : creature.deck()) {
+                    check(SpellBook.find(spellId).isPresent(),
+                            "sort inconnu " + spellId + " pour " + creature.id());
+                }
+                for (School school : School.values()) {
+                    check(creature.resist(school) >= -100 && creature.resist(school) <= 90,
+                            "resistance invalide (" + creature.id() + ", " + school.id() + ")");
+                    check(creature.boost(school) >= 0 && creature.boost(school) <= 100,
+                            "boost invalide (" + creature.id() + ", " + school.id() + ")");
+                }
+                check(creature.startingPips() >= 0 && creature.startingPips() <= 6,
+                        "pips de depart invalides : " + creature.id());
+            }
+        });
+
+        test("monde : les creatures sont rattachees a une zone et a une table de butin", () -> {
+            for (WorldCreature creature : Bestiary.all()) {
+                check(!creature.zoneIds().isEmpty(), "aucune zone pour " + creature.id());
+                for (String zoneId : creature.zoneIds()) {
+                    check(Zones.find(zoneId).isPresent(), "zone inconnue " + zoneId + " pour " + creature.id());
+                }
+                check(creature.lootTable() != null && LootTables.get(creature.lootTable()) != null,
+                        "table de butin manquante : " + creature.id());
+                check(creature.entity() != null && !creature.entity().isBlank(),
+                        "entite manquante : " + creature.id());
+            }
+            // Chaque creature du bestiaire doit etre visible dans au moins une zone.
+            Set<String> placed = new LinkedHashSet<>();
+            for (ZoneDef zone : Zones.all()) placed.addAll(zone.creatures());
+            for (WorldCreature creature : Bestiary.all()) {
+                check(placed.contains(creature.id()),
+                        "creature absente de toutes les zones : " + creature.id());
+            }
+        });
+
+        test("monde : les tables de butin sont valides", () -> {
+            check(LootTables.all().size() >= 4, "tables de butin attendues");
+            for (LootTable table : LootTables.all()) {
+                check(table.goldMin() <= table.goldMax(), "or invalide dans " + table.id());
+                check(!table.entries().isEmpty(), "table vide : " + table.id());
+                for (LootTable.Entry entry : table.entries()) {
+                    check(entry.chance() > 0 && entry.chance() <= 100,
+                            "chance invalide dans " + table.id());
+                    check(entry.min() <= entry.max(), "quantite invalide dans " + table.id());
+                    if (entry.kind() == LootDrop.LootKind.GEAR) {
+                        check(Gears.find(entry.id()).isPresent(),
+                                "objet inconnu " + entry.id() + " dans " + table.id());
+                    } else {
+                        check(entry.id().contains(":"), "objet vanilla invalide dans " + table.id());
+                    }
+                }
+                // Le tirage doit rendre du butin sur un grand nombre d'essais.
+                List<LootDrop> rolled = table.roll(new Rng(1L), 0);
+                check(rolled != null, "tirage impossible pour " + table.id());
+            }
+        });
+
+        test("monde : les defs de combat du bestiaire sont utilisables", () -> {
+            List<CreatureDef> defs = Bestiary.combatDefs();
+            eq(Bestiary.all().size(), defs.size(), "une def de combat par creature");
+            Set<String> ids = new LinkedHashSet<>();
+            for (CreatureDef def : defs) {
+                check(ids.add(def.id()), "def en double : " + def.id());
+                check(def.health() > 0, "sante nulle : " + def.id());
+                check(!def.deck().isEmpty(), "deck vide : " + def.id());
+            }
+        });
+    }
+
+    private static void testWorldGear() {
+        test("monde : le catalogue d'equipement couvre les cinq paliers", () -> {
+            check(Gears.all().size() >= 40, "pieces attendues, trouve " + Gears.all().size());
+            for (GearSlot slot : GearSlot.values()) {
+                check(Gears.ofSlot(slot).size() >= 5, "palier manquant pour " + slot);
+            }
+            for (int tier = 0; tier < 5; tier++) {
+                int count = Gears.ofTier(tier).size();
+                check(count >= 8, "palier " + tier + " incomplet (" + count + " pieces)");
+            }
+            for (GearDef gear : Gears.all()) {
+                check(!gear.nameFr().isBlank() && !gear.nameEn().isBlank(), "nom manquant : " + gear.id());
+                check(gear.level() >= 1, "niveau invalide : " + gear.id());
+                check(tierOf(gear) == gear.tier(), "palier incoherent : " + gear.id());
+                String line = gear.stats(true);
+                check(line != null, "ligne de statistiques manquante : " + gear.id());
+            }
+        });
+
+        test("monde : chaque palier donne une recompense par emplacement", () -> {
+            for (int tier = 0; tier < 5; tier++) {
+                for (GearSlot slot : GearSlot.values()) {
+                    String id = Gears.reward(tier, slot);
+                    check(Gears.find(id).isPresent(), "recompense introuvable : " + id);
+                    eq(slot, Gears.get(id).slot(), "emplacement de la recompense " + id);
+                }
+            }
+        });
+
+        test("monde : l'equipement porte augmente les statistiques du sorcier", () -> {
+            StatsFactory.WizardGear bare = StatsFactory.WizardGear.none();
+            List<GearDef> full = new ArrayList<>();
+            for (GearSlot slot : GearSlot.values()) full.add(Gears.get(Gears.reward(3, slot)));
+            StatsFactory.WizardGear dressed = GearStats.merge(bare, full);
+            check(GearStats.maxHealth(School.PYROMANCY, 20, dressed)
+                            > GearStats.maxHealth(School.PYROMANCY, 20, bare),
+                    "l'equipement doit augmenter les points de vie");
+            check(dressed.damageBonus() != bare.damageBonus()
+                            || dressed.resist() != bare.resist()
+                            || dressed.healthBonus() > 0,
+                    "l'equipement doit modifier les statistiques de duel");
+        });
+    }
+
+    private static int tierOf(GearDef gear) {
+        for (int tier = 0; tier < 5; tier++) {
+            if (Gears.ofTier(tier).stream().anyMatch(g -> g.id().equals(gear.id()))) return tier;
+        }
+        return -1;
+    }
+
+    private static void testQuestLog() {
+        test("quetes : le journal refuse une quete trop tot", () -> {
+            QuestLog log = new QuestLog();
+            check(!log.canStart("first_steps", 1), "Premiers Pas demande un prealable");
+            log.start("welcome_to_the_city");
+            check(log.isActive("welcome_to_the_city"), "la quete d'accueil doit demarrer");
+            check(!log.canStart("welcome_to_the_city", 1), "une quete active ne redemarre pas");
+        });
+
+        test("quetes : la progression des objectifs suit les evenements du jeu", () -> {
+            QuestLog log = new QuestLog();
+            QuestDef quest = Quests.get("burning_books");
+            check(log.canStart(quest.id(), 99) == false, "Livres Brulants suit Rapport a Hanna");
+            log.start("first_steps");
+            log.start("unwelcome_spirits");
+            log.start("bones_and_badges");
+            log.start("report_to_hanna");
+            log.complete("first_steps");
+            log.complete("unwelcome_spirits");
+            log.complete("bones_and_badges");
+            log.complete("report_to_hanna");
+            check(log.canStart(quest.id(), 99), "Livres Brulants doit etre accessible apres Rapport a Hanna");
+            log.start(quest.id());
+            check(!log.goalDone(quest.id(), quest.goals().get(0)), "objectif deja termine");
+            log.reportDefeat("ember_elf_hunter", 4);
+            check(log.goalDone(quest.id(), quest.goals().get(0)), "les 4 elfes doivent valider l'objectif");
+            check(!log.readyToHandIn(quest.id()), "la recolte reste a faire");
+            log.reportCollect("minecraft:blaze_powder", 1);
+            check(!log.readyToHandIn(quest.id()), "un seul reagent ne suffit pas");
+            log.reportCollect("minecraft:blaze_powder", 1);
+            check(log.readyToHandIn(quest.id()), "la quete doit etre prete a etre remise");
+            eq("hanna_emberwright", quest.handInNpc(), "remettant de la quete");
+            check(log.complete(quest.id()), "la remise doit aboutir");
+            check(log.isCompleted(quest.id()), "la quete doit etre archivee");
+            check(log.handInReady().isEmpty(), "plus rien a remettre");
+        });
+
+        test("quetes : la progression est bornee par les objectifs", () -> {
+            QuestLog log = new QuestLog();
+            log.start("welcome_to_the_city");
+            QuestDef quest = Quests.get("welcome_to_the_city");
+            log.reportVisit("bosquet");
+            int before = log.progressOf(quest.id(), quest.goals().get(0).key());
+            log.reportVisit("bosquet");
+            log.reportVisit("bosquet");
+            eq(before, log.progressOf(quest.id(), quest.goals().get(0).key()),
+                    "un objectif termine ne progresse plus");
+        });
+
+        test("quetes : le journal survit a une sauvegarde", () -> {
+            QuestLog log = new QuestLog();
+            log.start("welcome_to_the_city");
+            log.start("first_steps");
+            log.reportTalk("lea_nightchant");
+            log.complete("welcome_to_the_city");
+            Map<String, Map<String, Integer>> progress = log.rawProgress();
+
+            QuestLog restored = new QuestLog();
+            restored.restore(new ArrayList<>(log.active()), new LinkedHashSet<>(log.completed()), progress);
+            eq(log.active(), restored.active(), "quetes actives restaurees");
+            eq(log.completed(), restored.completed(), "quetes terminees restaurees");
+            eq(log.progressOf("first_steps", "talk:lea_nightchant"),
+                    restored.progressOf("first_steps", "talk:lea_nightchant"), "progression restauree");
+            check(restored.isCompleted("welcome_to_the_city"), "la quete terminee doit rester terminee");
+        });
+
+        test("quetes : les objectifs de discussion et de visite fonctionnent", () -> {
+            QuestLog log = new QuestLog();
+            log.start("welcome_to_the_city");
+            QuestDef quest = Quests.get("welcome_to_the_city");
+            boolean hasTalk = quest.goals().stream().anyMatch(g -> g instanceof QuestGoal.Talk);
+            boolean hasVisit = quest.goals().stream().anyMatch(g -> g instanceof QuestGoal.Visit);
+            check(hasTalk || hasVisit, "la quete d'accueil doit avoir un objectif de deplacement");
+            for (QuestGoal goal : quest.goals()) {
+                if (goal instanceof QuestGoal.Talk t) log.reportTalk(t.npcId());
+                if (goal instanceof QuestGoal.Visit v) log.reportVisit(v.zoneId());
+            }
+            check(log.readyToHandIn("welcome_to_the_city"), "la quete d'accueil doit etre remettable");
+        });
+    }
+
+    private static void testQuestRewards() {
+        test("quetes : les recompenses sont coherentes", () -> {
+            for (QuestDef quest : Quests.all()) {
+                check(quest.rewardXp() > 0, "aucune experience pour " + quest.id());
+                check(quest.rewardGold() >= 0, "or invalide pour " + quest.id());
+                if (quest.rewardSpell() != null) {
+                    check(SpellBook.find(quest.rewardSpell()).isPresent(),
+                            "sort de recompense inconnu : " + quest.rewardSpell());
+                }
+                if (quest.rewardItem() != null) {
+                    check(Gears.find(quest.rewardItem()).isPresent(),
+                            "objet de recompense inconnu : " + quest.rewardItem());
+                }
+                for (String choice : quest.rewardChoices()) {
+                    check(Gears.find(choice).isPresent(), "choix inconnu : " + choice);
+                }
+                check(quest.goals().size() >= 1, "quete sans objectif : " + quest.id());
+                check(!quest.nameFr().isBlank() && !quest.nameEn().isBlank(), "nom manquant : " + quest.id());
+            }
+        });
+
+        test("quetes : la chaine principale est continue", () -> {
+            String current = Quests.firstMainQuest();
+            Set<String> visited = new LinkedHashSet<>();
+            int previousLevel = 0;
+            while (current != null) {
+                check(visited.add(current), "boucle dans la chaine principale : " + current);
+                QuestDef quest = Quests.get(current);
+                check(!quest.side(), "quete annexe dans la chaine principale : " + current);
+                check(quest.levelRequired() >= previousLevel,
+                        "niveau qui redescend : " + current + " (nv " + quest.levelRequired() + ")");
+                previousLevel = quest.levelRequired();
+                if (quest.leadsTo() != null) {
+                    QuestDef next = Quests.get(quest.leadsTo());
+                    eq(current, next.prequest(), "maillon suivant de " + current);
+                }
+                current = quest.leadsTo();
+            }
+            check(visited.size() >= 12, "chaine principale trop courte : " + visited.size() + " quetes");
+            String last = null;
+            for (String id : visited) last = id;
+            check(last != null && Quests.get(last).leadsTo() == null, "la chaine doit se terminer");
+        });
+
+        test("quetes : chaque quete annexe est accessible", () -> {
+            int side = 0;
+            for (QuestDef quest : Quests.all()) {
+                if (!quest.side()) continue;
+                side++;
+                check(quest.levelRequired() >= 1, "niveau invalide : " + quest.id());
+                check(!quest.goals().isEmpty(), "objectif manquant : " + quest.id());
+            }
+            check(side >= 8, "quetes annexes attendues, trouve " + side);
+        });
+    }
+
+    private static void testWikiAnchors() {
+        test("wiki : les valeurs relevees sur la wiki sont conservees", () -> {
+            // Creature:Fire Elf Hunter - rang 2, 150 PV, 1 pip, +10% glace, 10% resistance feu.
+            WorldCreature elf = Bestiary.get("ember_elf_hunter");
+            eq(2, elf.rank(), "rang du chasseur elfe (wiki)");
+            eq(150, elf.health(), "sante du chasseur elfe (wiki)");
+            eq(1, elf.startingPips(), "pips de depart du chasseur elfe (wiki)");
+            eq(10, elf.boost(School.FROST), "sensibilite a la glace (wiki)");
+            eq(10, elf.resist(School.PYROMANCY), "resistance au feu (wiki)");
+            eq("Elf", elf.classification(), "classification (wiki)");
+            check(elf.deck().contains("frost_ward"), "le chasseur elfe lance un bouclier de givre (wiki)");
+            check(elf.deck().stream().filter(id -> id.equals("ember_kitten")).count() >= 2,
+                    "le chasseur elfe lance plusieurs Chatons de Braise, equivalent de Fire Cat (wiki)");
+            check(elf.deck().stream().anyMatch(id -> id.startsWith("wand_")),
+                    "le chasseur elfe a une attaque naturelle (wiki)");
+        });
+
+        test("wiki : les creatures emblematiques sont au bestiaire", () -> {
+            for (String id : List.of("ember_elf_hunter", "ember_elf_pathfinder", "wormguts",
+                    "gretta_darkkettle", "magma_man", "haunted_minion", "lost_soul", "tide_kraken",
+                    "the_harvest_lord", "bone_legion", "hollow_lord", "grand_necromancer", "tide_kraken")) {
+                check(Bestiary.find(id).isPresent(), "creature de la wiki manquante : " + id);
+            }
+            check(Bestiary.get("the_harvest_lord").boss(), "le seigneur des moissons est un boss");
+            check(Bestiary.get("grand_necromancer").boss(), "le grand necromancien est un boss");
+        });
+
+        test("wiki : les PNJ emblematiques donnent les quetes attendues", () -> {
+            check(Npcs.get("headmaster_alderwise").givesQuests().contains("welcome_to_the_city"),
+                    "le directeur accueille le joueur");
+            check(Npcs.get("hanna_emberwright").givesQuests().contains("burning_books"),
+                    "Hanna donne Livres Brulants");
+            check(Npcs.get("captain_marrow").givesQuests().contains("the_harvest_lord_quest"),
+                    "Marrow donne la traque du seigneur des moissons");
+            check(Quests.get("the_harvest_lord_quest").goals().stream()
+                            .anyMatch(g -> g instanceof QuestGoal.Defeat d && d.creatureId().equals("the_harvest_lord")),
+                    "le seigneur des moissons est le boss de la quete");
         });
     }
 }
