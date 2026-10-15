@@ -11,9 +11,9 @@ volumineux et les vestes.
 Ce module dessine :
   * une apparence par PNJ (`npc/<identifiant>.png`), a partir de sa tenue, de son
     ecole et de sa fonction, lues dans le catalogue du moteur ;
-  * une robe de sorcier par ecole (`wizard/<ecole>.png`), uniquement sur la
-    couche exterieure : superposee a la peau du joueur, elle l'habille en
-    sorcier sans lui retirer son apparence Minecraft.
+  * les deux textures de la tenue 3D (`wizard/cloth.png` en niveaux de gris, qui
+    sera teintee, et `wizard/detail.png` en couleurs), dessinees a partir de la
+    table de pieces du modele Java.
 """
 import os
 import re
@@ -666,88 +666,161 @@ def write_npc_skins():
 def read_robe_model():
     """Relit le modele 3D dans le code Java.
 
-    Le fichier Java est la seule source de verite : chaque ligne
-    `box(partie, "nom", u, v, x, y, z, largeur, hauteur, profondeur)` y decrit une
-    piece de la tenue. Le generateur dessine la texture de ces pieces et les
-    apercus les dessinent en 3D, donc l'image et le modele ne peuvent pas
-    diverger.
+    Le fichier Java est la seule source de verite : chaque ligne y decrit une
+    piece, comme dans un modele Blockbench :
+
+        piece <partie> <nom> <matiere> <u> <v> <x> <y> <z> <largeur> <hauteur> <profondeur>
+        pivot <partie> <x> <y> <z>
+
+    Le generateur dessine les textures de ces pieces et les apercus les dessinent
+    en 3D, donc l'image et le modele ne peuvent pas diverger.
     """
     path = os.path.join(ROOT, 'src', 'main', 'java', 'com', 'arcanumrealms', 'client',
                         'model', 'WizardRobeModel.java')
     with open(path, encoding='utf-8') as f:
         source = f.read()
-    pattern = re.compile(
-        r'box\(\s*(\w+)\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,'
-        r'\s*(-?[\d.]+)F\s*,\s*(-?[\d.]+)F\s*,\s*(-?[\d.]+)F\s*,'
-        r'\s*(-?[\d.]+)F\s*,\s*(-?[\d.]+)F\s*,\s*(-?[\d.]+)F\s*\)')
+    table = re.search(r'PIECES = """(.*?)""";', source, re.S)
+    if not table:
+        raise SystemExit('table PIECES introuvable dans WizardRobeModel.java')
+
     pieces = []
-    for match in pattern.finditer(source):
-        part, name, u, v, x, y, z, w, h, d = match.groups()
-        pieces.append({
-            'part': part, 'name': name, 'u': int(u), 'v': int(v),
-            'box': (float(x), float(y), float(z), float(x) + float(w),
-                    float(y) + float(h), float(z) + float(d)),
-            'size': (float(w), float(h), float(d)),
-        })
+    pivots = {}
+    for raw in table.group(1).splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#'):
+            continue
+        words = line.split()
+        if words[0] == 'pivot':
+            pivots[words[1]] = tuple(float(value) for value in words[2:5])
+        elif words[0] == 'piece':
+            part, name, layer = words[1], words[2], words[3]
+            u, v = int(words[4]), int(words[5])
+            x, y, z = (float(value) for value in words[6:9])
+            w, h, d = (float(value) for value in words[9:12])
+            pivot = pivots.get(part, (0.0, 0.0, 0.0))
+            pieces.append({
+                'part': part, 'name': name, 'layer': layer, 'u': u, 'v': v,
+                'box': (x, y, z, x + w, y + h, z + d), 'size': (w, h, d),
+                'pivot': pivot,
+            })
+        else:
+            raise SystemExit(f'ligne de modele illisible : {line}')
     if not pieces:
         raise SystemExit('aucune piece trouvee dans WizardRobeModel.java')
     return pieces
 
 
-# tonalites de la robe (niveaux de gris : la couleur vient de la teinte a l'affichage)
-ROBE_TONES = {
-    'cloth': 205,      # tissu
-    'fold': 168,       # plis
-    'trim': 236,       # revers et galons
-    'dark': 132,       # interieur, ombres
-    'metal': 226,      # casque et pieces brillantes
+# ------------------------------------------------- textures de la tenue
+#
+# Le tissu est dessine en niveaux de gris : il est teinte en jeu par la couleur de
+# l'ecole. Les details gardent leur couleur (metal, cuir, galon, gemme).
+
+CLOTH_TONES = {'cloth': 208, 'trim': 238, 'dark': 150}
+
+DETAIL_COLOURS = {
+    'metal': (176, 182, 194, 255),
+    'metal_dark': (116, 122, 136, 255),
+    'leather': (108, 74, 46, 255),
+    'leather_dark': (78, 52, 32, 255),
+    'gold': (216, 176, 76, 255),
+    'gold_dark': (168, 130, 52, 255),
+    'gem': (108, 200, 232, 255),
+    'hem': (150, 108, 52, 255),
 }
 
 
-def robe_texture(pieces=None, size=128):
-    """Dessine la texture du modele 3D : une image en niveaux de gris.
+def detail_colour(name):
+    """Couleur d'une piece de detail, d'apres son nom."""
+    if name.startswith('helm'):
+        return DETAIL_COLOURS['metal']
+    if 'gem' in name:
+        return DETAIL_COLOURS['gem']
+    if 'belt' in name:
+        return DETAIL_COLOURS['leather']
+    if 'band' in name and 'straw' not in name:
+        return DETAIL_COLOURS['gold_dark']
+    if 'straw_band' in name:
+        return DETAIL_COLOURS['leather']
+    if 'hem' in name:
+        return DETAIL_COLOURS['hem']
+    if 'hood_edge' in name:
+        return (86, 92, 108, 255)
+    if 'placket' in name:
+        return (232, 226, 206, 255)
+    if 'trim' in name or 'buckle' in name:
+        return DETAIL_COLOURS['gold']
+    return DETAIL_COLOURS['gold']
 
-    Chaque piece du modele occupe une region de la texture, mise en page comme
-    pour une peau : dessus, dessous, cotes, avant, dos. Les faces sont ombrees
-    (le dessus plus clair, le dessous plus sombre) : c'est ce qui donne du
-    volume a la tenue une fois teintee en jeu.
+
+def face_regions(u, v, length, height, depth):
+    """Les six rectangles d'une piece dans la texture (mise en page de Minecraft)."""
+    return {
+        'dessus': (u + depth, v, length, depth),
+        'dessous': (u + depth + length, v, length, depth),
+        'droite': (u, v + depth, depth, height),
+        'avant': (u + depth, v + depth, length, height),
+        'gauche': (u + depth + length, v + depth, depth, height),
+        'dos': (u + depth + length + depth, v + depth, length, height),
+    }
+
+
+def robe_texture(pieces=None, size=256):
+    """Dessine les deux textures de la tenue : (tissu, details).
+
+    Le tissu est en niveaux de gris (il sera teinte), les details gardent leurs
+    couleurs. Les faces sont ombrees — dessus plus clair, dessous plus sombre —
+    et un pli marque le milieu du tissu : c'est ce qui donne du volume a distance.
     """
-    img = blank(size, size)
+    cloth = blank(size, size)
+    detail = blank(size, size)
     pieces = pieces or read_robe_model()
 
     for piece in pieces:
         u, v = piece['u'], piece['v']
         width, height, depth = (int(round(value)) for value in piece['size'])
-        name = piece['name']
-        if 'helm' in name:
-            base = ROBE_TONES['metal']
-        elif 'cuff' in name or 'trim' in name or 'brim' in name or 'collar' in name:
-            base = ROBE_TONES['trim']
-        elif 'belt' in name or 'buckle' in name:
-            base = ROBE_TONES['metal']
-        else:
-            base = ROBE_TONES['cloth']
+        is_cloth = piece['layer'] == 'cloth'
+        base = CLOTH_TONES['cloth']
+        colour = detail_colour(piece['name'])
 
         def tone(delta):
-            value = max(40, min(255, base + delta))
-            return (value, value, value, 255)
+            """Couleur d'une face : gris pour le tissu, couleur du detail sinon."""
+            if is_cloth:
+                value = max(40, min(255, base + delta))
+                return (value, value, value, 255)
+            return shade(colour, delta // 2)
 
-        # mise en page d'une piece : (u+d, v) dessus, (u+d+w, v) dessous,
-        # (u, v+d) cote droit, (u+d, v+d) avant, (u+d+w, v+d) cote gauche,
-        # (u+d+w+d, v+d) dos
-        rect(img, u + depth, v, width, depth, tone(28))                       # dessus
-        rect(img, u + depth + width, v, width, depth, tone(-46))              # dessous
-        rect(img, u, v + depth, depth, height, tone(-14))                     # cote droit
-        rect(img, u + depth, v + depth, width, height, tone(0))               # avant
-        rect(img, u + depth + width, v + depth, depth, height, tone(-22))     # cote gauche
-        rect(img, u + depth + width + depth, v + depth, width, height, tone(-30))  # dos
+        target = cloth if is_cloth else detail
+        for face, (rx, ry, rw, rh) in face_regions(u, v, width, height, depth).items():
+            shift = {'dessus': 26, 'dessous': -44, 'droite': -12, 'avant': 0,
+                     'gauche': -22, 'dos': -30}[face]
+            rect(target, rx, ry, rw, rh, tone(shift))
 
-        # details : un pli au milieu du tissu, un liseré sur les revers
-        if base == ROBE_TONES['cloth'] and height >= 4:
-            rect(img, u + depth, v + depth + height // 2, width, 1, tone(-26))
-        if base == ROBE_TONES['trim'] and height >= 2:
-            rect(img, u + depth, v + depth, width, 1, tone(14))
-    return img
+        # plis et liseres : c'est ce qui distingue une piece d'un simple cube
+        if is_cloth:
+            if height >= 4:
+                rect(cloth, u + depth, v + depth + height // 2, width, 1, tone(-24))
+            if width >= 5:
+                rect(cloth, u + depth + width // 3, v + depth, 1, height, tone(-14))
+            if height >= 6:
+                rect(cloth, u + depth, v + depth + 1, width, 1, tone(12))
+        else:
+            if height >= 2:
+                rect(detail, u + depth, v + depth, width, 1, tone(30))
+    return cloth, detail
+
+
+def write_wizard_robe():
+    """Ecrit les deux textures de la tenue 3D."""
+    from pixelart import write_png
+    out_dir = os.path.join(ASSETS, 'textures', 'entity', 'wizard')
+    os.makedirs(out_dir, exist_ok=True)
+    for name in os.listdir(out_dir):
+        if name.endswith('.png'):
+            os.remove(os.path.join(out_dir, name))
+    cloth, detail = robe_texture()
+    write_png(os.path.join(out_dir, 'cloth.png'), cloth, 256, 256)
+    write_png(os.path.join(out_dir, 'detail.png'), detail, 256, 256)
+    return ['cloth', 'detail']
 
 
 def player_skin():
@@ -762,25 +835,13 @@ def player_skin():
     return character(spec)
 
 
-def write_wizard_robe():
-    """Ecrit la texture de la tenue 3D (une seule image pour toutes les robes)."""
-    from pixelart import write_png
-    out_dir = os.path.join(ASSETS, 'textures', 'entity', 'wizard')
-    os.makedirs(out_dir, exist_ok=True)
-    # les anciennes robes plates par ecole ne servent plus
-    for name in os.listdir(out_dir):
-        if name.endswith('.png'):
-            os.remove(os.path.join(out_dir, name))
-    write_png(os.path.join(out_dir, 'robe.png'), robe_texture(), 128, 128)
-    return ['robe']
-
-
 def main():
     skins = write_npc_skins()
     robes = write_wizard_robe()
-    pieces = len(read_robe_model())
-    print(f'Apparences : {len(skins)} PNJ, {len(robes)} texture de tenue 3D '
-          f'({pieces} pieces de modele).')
+    model = read_robe_model()
+    cloth = sum(1 for piece in model if piece['layer'] == 'cloth')
+    print(f'Apparences : {len(skins)} PNJ, {len(robes)} textures de tenue 3D '
+          f'({len(model)} pieces dont {cloth} de tissu).')
 
 
 if __name__ == '__main__':

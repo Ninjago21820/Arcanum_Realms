@@ -29,6 +29,16 @@ SKIN_DIR = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'arcanum_rea
                         'textures', 'entity', 'npc')
 ROBE_DIR = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'arcanum_realms',
                         'textures', 'entity', 'wizard')
+# matieres de la tenue : le tissu est teinte, les details gardent leur couleur
+ROBE_TEXTURES = {'cloth': os.path.join(ROBE_DIR, 'cloth.png'),
+                 'detail': os.path.join(ROBE_DIR, 'detail.png')}
+ROBE_CACHE = {}
+
+
+def robe_texture(layer):
+    if layer not in ROBE_CACHE:
+        ROBE_CACHE[layer] = read_png(ROBE_TEXTURES[layer])
+    return ROBE_CACHE[layer]
 
 # --------------------------------------------------------------- le modele
 #
@@ -63,8 +73,11 @@ FACE_ORDER = ('dessus', 'dessous', 'droite', 'avant', 'gauche', 'dos')
 PART_OFFSETS = {
     'head': (0.0, 0.0, 0.0),
     'body': (0.0, 0.0, 0.0),
-    'rightArm': (-5.0, 2.0, 0.0),
-    'leftArm': (5.0, 2.0, 0.0),
+    'right_arm': (-5.0, 2.0, 0.0),
+    'left_arm': (5.0, 2.0, 0.0),
+    # parties d'animation : leur pivot est celui du corps ou de la tete
+    'cape': (0.0, 0.0, 0.0),
+    'skirt': (0.0, 0.0, 0.0),
 }
 
 
@@ -214,8 +227,8 @@ def skin_pieces(skin):
     return pieces
 
 
-def robe_pieces(texture, colour, attire, java_pieces=None):
-    """La tenue 3D, teintee, avec la seule coiffe demandee.
+def robe_pieces(colour, attire, java_pieces=None):
+    """La tenue 3D, teintee (tissu) ou en couleurs (details), coiffe choisie.
 
     Le modele est relu dans le code Java ; seules les pieces de la coiffe portee
     sont dessinees, comme le fait la couche de rendu du mod.
@@ -226,32 +239,38 @@ def robe_pieces(texture, colour, attire, java_pieces=None):
     for piece in java_pieces:
         if not hat_visible(piece['name'], attire):
             continue
-        # repere du modele Java (l'axe vertical descend) vers le repere de l'apercu
-        # (pieds a y = 0, comme dans PARTS)
+        # repere du modele Java (verticale vers le bas, epaules a 0) vers le repere de
+        # l'apercu (pieds a 0, verticale vers le haut). Le pivot de la partie compte :
+        # les pieces sont ecrites dans son repere local.
         ox, oy, oz = PART_OFFSETS[piece['part']]
+        px, py, pz = piece['pivot']
         x0, y0, z0, x1, y1, z1 = piece['box']
-        box = (x0 + ox, 24 - (y1 + oy), z0 + oz, x1 + ox, 24 - (y0 + oy), z1 + oz)
+        box = (x0 + px + ox, 24 - (y1 + py + oy), z0 + pz + oz,
+               x1 + px + ox, 24 - (y0 + py + oy), z1 + pz + oz)
         width, height, depth = (int(round(v)) for v in piece['size'])
         regions = face_regions(piece['u'], piece['v'], width, height, depth)
+        is_cloth = piece['layer'] == 'cloth'
         pieces.append({'name': piece['name'], 'box': box, 'regions': regions,
-                       'texture': texture, 'tint': tint})
+                       'texture': robe_texture(piece['layer']),
+                       'tint': tint if is_cloth else (1.0, 1.0, 1.0)})
     return pieces
 
 
-# Quelles pieces appartiennent a quelle coiffe. Miroir de WizardRobeLayer.showHat
+# Quelles pieces appartiennent a quelle coiffe. Miroir de WizardRobeLayer.wearHat
 # cote mod : une seule coiffe est portee a la fois.
 HATS = {
-    'POINTED': ('hat_brim', 'hat_cone_1', 'hat_cone_2', 'hat_cone_3', 'hat_tip'),
-    'HOOD': ('hood_back', 'hood_cowl'),
-    'HELM': ('helm_cap', 'helm_nose', 'helm_cheek', 'helm_cheek_2'),
-    'CAP': ('cap_crown', 'cap_brim'),
-    'STRAW': ('straw_crown', 'straw_brim'),
+    'POINTED': ('hat_brim', 'hat_a', 'hat_b', 'hat_c', 'hat_d', 'hat_e', 'hat_tip',
+                'hat_band'),
+    'HOOD': ('hood_back', 'hood_top', 'hood_edge', 'hood_cowl'),
+    'HELM': ('helm_cap', 'helm_nose', 'helm_cheekL', 'helm_cheekR', 'helm_ridge'),
+    'CAP': ('cap_crown', 'cap_brim', 'cap_band'),
+    'STRAW': ('straw_crown', 'straw_brim', 'straw_band'),
 }
-# Toutes les pieces qui appartiennent a une coiffe : les autres sont portees en
-# permanence (torse, col, cape, ceinture, jupe, manches).
-HAT_PIECES = {name for pieces in HATS.values() for name in pieces}
 # la cape d'epaules est remplacee par le col de la capuche
 REPLACED_BY_HOOD = ('mantle', 'mantle_trim')
+
+# toutes les pieces qui appartiennent a une coiffe
+HAT_PIECES = {name for pieces in HATS.values() for name in pieces}
 
 
 def hat_visible(piece_name, attire):
@@ -302,17 +321,15 @@ def colour_of(npc_id):
     return (0x9B, 0x59, 0xB6)
 
 
-def dressed(skin, robe_texture, colour, attire):
+def dressed(skin, colour, attire):
     """Un personnage complet : sa peau, puis sa tenue 3D par-dessus."""
-    java_pieces = character_skins.read_robe_model()
-    return skin_pieces(skin) + robe_pieces(robe_texture, colour, attire, java_pieces)
+    return skin_pieces(skin) + robe_pieces(colour, attire)
 
 
 def npc_character(name):
     """Le personnage habille d'un PNJ, pret a dessiner."""
     skin = read_png(os.path.join(SKIN_DIR, name + '.png'))
-    robe = read_png(os.path.join(ROBE_DIR, 'robe.png'))
-    return dressed(skin, robe, colour_of(name), attire_of(name))
+    return dressed(skin, colour_of(name), attire_of(name))
 
 
 def planche(names, columns=5, pixels_per_unit=6.0):
@@ -367,27 +384,28 @@ SCHOOLS = (('pyromancy', 0xE4592B), ('tempest', 0x7A55D6), ('frost', 0x74C4E8),
 def planche_tenues(pixels_per_unit=6.0):
     """La tenue 3D des joueurs, une par ecole (la robe est teintee par l'ecole)."""
     base = character_skins.player_skin()
-    robe = read_png(os.path.join(ROBE_DIR, 'robe.png'))
-    java_pieces = character_skins.read_robe_model()
 
     entries = [(name, (rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff)) for name, rgb in SCHOOLS]
     entries.append(('sans ecole', (0x6C, 0x74, 0x88)))
 
     view = int(40 * pixels_per_unit)
     columns = 4
-    cell_w = view + 8
+    cell_w = view * 2 + 8
     cell_h = view + 16
     rows = (len(entries) + columns - 1) // columns
     sheet = blank(columns * cell_w, rows * cell_h)
     rect(sheet, 0, 0, len(sheet[0]), len(sheet), (26, 28, 38, 255))
     for index, (name, colour) in enumerate(entries):
         attire = 'NONE' if name == 'sans ecole' else 'POINTED'
-        pieces = skin_pieces(base) + robe_pieces(robe, colour, attire, java_pieces)
-        view_render = render(pieces, yaw_degrees=26, pitch_degrees=12,
-                             pixels_per_unit=pixels_per_unit, size=view)
+        pieces = skin_pieces(base) + robe_pieces(colour, attire)
+        front = render(pieces, yaw_degrees=22, pitch_degrees=10,
+                       pixels_per_unit=pixels_per_unit, size=view)
+        back = render(pieces, yaw_degrees=200, pitch_degrees=10,
+                      pixels_per_unit=pixels_per_unit, size=view)
         base_x = (index % columns) * cell_w
         base_y = (index // columns) * cell_h
-        paste(sheet, view_render, base_x + 4, base_y + 4)
+        paste(sheet, front, base_x + 4, base_y + 4)
+        paste(sheet, back, base_x + view + 4, base_y + 4)
         draw_number(sheet, base_x + 6, base_y + cell_h - 9, index + 1)
     return sheet, [name for name, _colour in entries]
 
@@ -453,14 +471,15 @@ def check_skin(path):
     return name, problems
 
 
-def check_robe(path):
-    """Verifie la texture de la tenue 3D : chaque piece doit avoir sa place peinte."""
+def check_robe(path, only_layer=None):
+    """Verifie une texture de la tenue 3D : chaque piece doit avoir sa place peinte."""
     name = os.path.basename(path)
     texture = read_png(path)
     problems = []
     height = len(texture)
     width = len(texture[0])
-    pieces = character_skins.read_robe_model()
+    pieces = [piece for piece in character_skins.read_robe_model()
+              if only_layer is None or piece['layer'] == only_layer]
     for piece in pieces:
         u, v = piece['u'], piece['v']
         box_w, box_h, box_d = (int(round(value)) for value in piece['size'])
@@ -476,12 +495,12 @@ def check_robe(path):
 
     # la teinte en jeu multiplie la texture : elle doit rester claire pour que la
     # couleur de l'ecole ressorte
-    values = [texture[y][x][0] for y in range(0, 128, 3) for x in range(0, 128, 3)
-              if texture[y][x][3] > 0]
-    if values:
+    values = [texture[y][x][0] for y in range(0, width, 3) for x in range(0, height, 3)
+              if texture[y][x][3] > 0 and x < width and y < height]
+    if values and only_layer == 'cloth':
         average = sum(values) / len(values)
         if average < 140:
-            problems.append(f'texture trop sombre pour etre teintee (moyenne {average:.0f}/255)')
+            problems.append(f'tissu trop sombre pour etre teinte (moyenne {average:.0f}/255)')
     if values and max(values) - min(values) < 20:
         problems.append('texture trop uniforme : les faces ne se distinguent pas')
     return name, problems
@@ -515,15 +534,16 @@ def main():
                     print(f'         - {problem}')
             else:
                 print(f'  [OK]   {label}')
-        robe_label, robe_problems = check_robe(os.path.join(ROBE_DIR, 'robe.png'))
-        if robe_problems:
-            failures += 1
-            print(f'  [KO]   tenue 3D : {robe_label}')
-            for problem in robe_problems:
-                print(f'         - {problem}')
-        else:
-            print(f'  [OK]   tenue 3D : {robe_label}')
-        total = len(names) + 1
+        for layer, filename in (('cloth', 'cloth.png'), ('detail', 'detail.png')):
+            robe_label, robe_problems = check_robe(os.path.join(ROBE_DIR, filename), layer)
+            if robe_problems:
+                failures += 1
+                print(f'  [KO]   tenue 3D ({layer}) : {robe_label}')
+                for problem in robe_problems:
+                    print(f'         - {problem}')
+            else:
+                print(f'  [OK]   tenue 3D ({layer}) : {robe_label}')
+        total = len(names) + 2
         print(f'{total - failures}/{total} elements conformes.')
         sys.exit(1 if failures else 0)
 

@@ -1,8 +1,9 @@
 # Apparence des personnages
 
 Les personnages sont des humanoïdes dans le style de Minecraft, **et leur tenue est un vrai
-modèle 3D** : chapeau en cône, cape d'épaules, manches plus larges que les bras, ceinture et
-jupe évasée, en cubes volumétriques posés autour du corps.
+modèle 3D** : robe longue, cape qui bouge, manches évasées, ceinture, jupe à ourlet doré et
+coiffe en volume — construits comme un modèle Blockbench, avec des parties articulées et
+animées.
 
 ## Le personnage
 
@@ -15,41 +16,73 @@ La tenue est **teintée à l'affichage** (§ suivant) : une seule texture sert d
 les robes, et chaque personnage reçoit sa couleur — celle de son école pour un joueur, celle
 de sa tenue pour un PNJ.
 
-## Le modèle 3D : comment il est construit
+## Le modèle 3D : une table de pièces
 
-Tout est dans un seul fichier, `client/model/WizardRobeModel.java`. Chaque pièce tient sur une
-ligne :
+Tout est dans un seul fichier, `client/model/WizardRobeModel.java`, sous forme de **table** —
+comme un modèle Blockbench, mais lisible dans le code :
 
-```java
-box(head, "hat_cone_1", 44, 0, -4F, -11.5F, -4F, 8F, 2F, 8F);
+```text
+piece  <partie> <nom> <matière> <u> <v> <x> <y> <z> <largeur> <hauteur> <profondeur>
+pivot  <partie> <x> <y> <z>
 ```
 
-c'est-à-dire : sur quelle partie du corps elle est attachée (`head`, `body`, `rightArm`,
-`leftArm`), son nom, sa place dans la texture (`44, 0`), son coin et ses dimensions. Les
-pièces attachées à la tête suivent la tête (un personnage qui se retourne tourne son chapeau),
-celles attachées aux bras suivent les bras, et la jupe suit le torse.
+Par exemple, les pièces de la jupe et la cape de dos :
 
-Le repère est celui des modèles de Minecraft : les pieds à `y = 24`, les épaules à `y = 0`,
-le sommet du crâne à `y = -8`, et l'axe vertical descend.
+```text
+pivot  cape 0 0 -2
+piece  cape cape_main cloth 0 144 -4.6 0 -1.6 9.2 15 1.5
+piece  cape cape_hem detail 32 144 -4.8 14.6 -2.1 9.6 1.4 2.6
+pivot  skirt 0 11 0
+piece  skirt skirt_low cloth 76 168 -6.2 8 -3.6 12.4 4.6 7.2
+```
 
-Ajouter une pièce est donc une seule ligne à écrire — **et le générateur d'apparences, les
-aperçus et le contrôle du format se mettent à jour tout seuls** : ils relisent ce fichier
-(voir plus bas).
+- **partie** : à quoi la pièce est attachée (`head`, `body`, `right_arm`, `left_arm`, `cape`,
+  `skirt`). Une pièce attachée à la tête tourne avec la tête ; la cape et la jupe ont leur
+  propre `pivot` (le haut de la cape, la taille) et peuvent donc bouger seules.
+- **matière** : `cloth` (tissu, **teinté** par la couleur de l'école ou du PNJ) ou `detail`
+  (métal, cuir, galons, gemme — qui gardent leurs couleurs).
+- **u, v** : où la pièce se trouve dans la texture ; **x, y, z** son coin et ses dimensions.
 
-## La texture de la tenue
+Repère : celui des modèles de Minecraft — épaules à `y = 0`, taille à `y = 12`, pieds à
+`y = 24`, et l'axe vertical descend.
 
-`textures/entity/wizard/robe.png` (128 × 128) est dessinée **en niveaux de gris** puis
-teintée en jeu : les plis, les ombres et les revers viennent de la texture, la couleur vient
-du jeu. Les faces sont ombrées (dessus plus clair, dessous plus sombre), ce qui donne le
-volume.
+Ajouter une pièce, élargir une manche ou allonger la jupe se fait donc **en changeant un
+nombre**, et le générateur de textures, les planches d'aperçu et le contrôle du format suivent
+tout seuls : ils relisent cette table (voir plus bas).
+
+## Les animations
+
+`animate(...)` fait vivre la tenue par-dessus la pose du personnage :
+
+| Ce qui bouge | Comment |
+| --- | --- |
+| **Cape** | elle pend, puis s'envole avec la marche, et se balance latéralement au rythme des pas |
+| **Jupe** | elle ondule au rythme des pas et respire très légèrement à l'arrêt |
+| **Manches** | léger retard sur le bras, et claquement quand le personnage frappe |
+| **Tissu** | la respiration soulève le torse de quelques centièmes d'unité |
+| **Coiffe** | elle suit l'inclinaison de la tête |
+
+Tout part de trois valeurs que Minecraft donne à chaque image : la phase de marche
+(`limbSwing`), son amplitude (`limbSwingAmount`) et le temps écoulé (`ageInTicks`).
+
+## Les textures (deux matières)
+
+| Fichier | Rôle |
+| --- | --- |
+| `textures/entity/wizard/cloth.png` (256 × 256) | le tissu, dessiné **en niveaux de gris** puis teinté en jeu (couleur de l'école pour un joueur, couleur de tenue pour un PNJ) |
+| `textures/entity/wizard/detail.png` (256 × 256) | le métal, le cuir, les galons, la gemme — jamais teintés |
+
+Les faces sont ombrées (dessus plus clair, dessous plus sombre) et un pli marque le milieu du
+tissu : c'est ce qui donne du volume, même à distance. Le modèle est dessiné en deux passes,
+une par matière, ce qui permet au tissu d'être coloré sans que le métal le soit.
 
 ```bash
-python3 tools/character_skins.py     # (re)dessine la texture à partir du modèle Java
+python3 tools/character_skins.py     # (re)dessine les deux textures à partir du modèle Java
 ```
 
-Un **pack de ressources** peut la remplacer, comme n'importe quelle texture : déposez votre
-`robe.png` dans `assets/arcanum_realms/textures/entity/wizard/`. Restez dans les gris clairs :
-la texture est multipliée par la couleur du personnage.
+Un **pack de ressources** peut les remplacer : déposez vos `cloth.png` et `detail.png` dans
+`assets/arcanum_realms/textures/entity/wizard/`. Pour le tissu, restez dans les gris clairs :
+il est multiplié par la couleur du personnage.
 
 ## Voir le résultat sans lancer le jeu
 
@@ -79,7 +112,8 @@ Les apparences sont des fichiers de `src/main/resources/assets/arcanum_realms/te
 ```text
 npc/<identifiant du PNJ>.png     la peau d'un PNJ (lea_nightchant.png, guard_quentin.png, ...)
 npc/neutral.png                  peau de secours
-wizard/robe.png                  la texture de la tenue 3D (niveaux de gris, teintée en jeu)
+wizard/cloth.png                 le tissu de la tenue 3D (niveaux de gris, teinté en jeu)
+wizard/detail.png                les détails de la tenue 3D (métal, cuir, galons)
 ```
 
 Un **pack de ressources** peut les remplacer sans recompiler le mod : créez le dossier
